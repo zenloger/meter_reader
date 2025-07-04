@@ -1,4 +1,4 @@
-package com.so_dam.boltexponativewind
+package com.so_dam.meter_reader
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

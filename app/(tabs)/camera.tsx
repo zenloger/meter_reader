@@ -1,10 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, FlipHorizontal, Zap, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
-import { storeReading } from '@/utils/storage';
+import { storeReading, initDB } from '@/utils/storage';
 import { useRouter } from 'expo-router';
 
 export default function CameraTab() {
@@ -14,6 +14,10 @@ export default function CameraTab() {
   const [lastReading, setLastReading] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    initDB();
+  }, []);
 
   if (!permission) {
     return (
@@ -52,9 +56,14 @@ export default function CameraTab() {
       });
 
       if (photo) {
-        // Analyze the image
-        const analysis = await analyzeImage(photo.uri);
-        
+        // Мокаем результат анализа
+        const randomValue = Math.floor(Math.random() * 10000) / 100;
+        const analysis = {
+          value: randomValue,
+          unit: 'м³',
+          confidence: 0.8 + Math.random() * 0.2,
+          type: 'gas' as const,
+        };
         // Store the reading
         const reading = {
           id: Date.now().toString(),
@@ -65,7 +74,6 @@ export default function CameraTab() {
           timestamp: new Date().toISOString(),
           type: analysis.type,
         };
-
         await storeReading(reading);
         setLastReading(`${analysis.value} ${analysis.unit}`);
         

@@ -1,45 +1,55 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SQLite from 'expo-sqlite';
 import { MeterReading } from '@/types';
 
-const STORAGE_KEY = 'meter_readings';
+const db = SQLite.openDatabaseSync('meter_readings.db');
+let dbInitialized = false;
 
-export const getStoredReadings = async (): Promise<MeterReading[]> => {
-  try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    console.error('Error getting stored readings:', error);
-    return [];
+async function ensureDBInitialized() {
+  if (!dbInitialized) {
+    await initDB();
+    dbInitialized = true;
   }
+}
+
+// Инициализация таблицы
+export const initDB = async () => {
+  await db.execAsync(
+    `CREATE TABLE IF NOT EXISTS readings (
+      id TEXT PRIMARY KEY NOT NULL,
+      value REAL,
+      unit TEXT,
+      confidence REAL,
+      imageUri TEXT,
+      timestamp TEXT,
+      type TEXT
+    );`
+  );
 };
 
+export const getStoredReadings = async (): Promise<MeterReading[]> => {
+  await ensureDBInitialized();
+  const rawResult: unknown = await db.execAsync('SELECT * FROM readings ORDER BY timestamp DESC;');
+  const result = rawResult as any[];
+  return result && result[0]?.rows ? (result[0].rows as MeterReading[]) : [];
+};
+
+function escapeStr(str: string) {
+  return str.replace(/'/g, "''");
+}
+
 export const storeReading = async (reading: MeterReading): Promise<void> => {
-  try {
-    const existingReadings = await getStoredReadings();
-    const newReadings = [reading, ...existingReadings];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newReadings));
-  } catch (error) {
-    console.error('Error storing reading:', error);
-    throw error;
-  }
+  await ensureDBInitialized();
+  await db.execAsync(
+    `INSERT INTO readings (id, value, unit, confidence, imageUri, timestamp, type) VALUES ('${escapeStr(reading.id)}', ${reading.value}, '${escapeStr(reading.unit)}', ${reading.confidence}, '${escapeStr(reading.imageUri)}', '${escapeStr(reading.timestamp)}', '${escapeStr(reading.type)}');`
+  );
 };
 
 export const deleteReading = async (id: string): Promise<void> => {
-  try {
-    const existingReadings = await getStoredReadings();
-    const filteredReadings = existingReadings.filter(reading => reading.id !== id);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filteredReadings));
-  } catch (error) {
-    console.error('Error deleting reading:', error);
-    throw error;
-  }
+  await ensureDBInitialized();
+  await db.execAsync(`DELETE FROM readings WHERE id = '${escapeStr(id)}';`);
 };
 
 export const clearAllReadings = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error('Error clearing all readings:', error);
-    throw error;
-  }
+  await ensureDBInitialized();
+  await db.execAsync('DELETE FROM readings;');
 };

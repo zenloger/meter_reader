@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.so_dam.boltexponativewind'
+    namespace 'com.so_dam.meter_reader'
     defaultConfig {
-        applicationId 'com.so_dam.boltexponativewind'
+        applicationId 'com.so_dam.meter_reader'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
