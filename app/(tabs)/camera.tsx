@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { Camera, FlipHorizontal, Zap, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 export default function CameraTab() {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -14,13 +14,27 @@ export default function CameraTab() {
   const [lastReading, setLastReading] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [editUnit, setEditUnit] = useState('м³');
+  const [editPhoto, setEditPhoto] = useState<any>(null);
+  const [editConfidence, setEditConfidence] = useState(0.9);
+  const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
-    if (permission) {
-      requestPermission();
-    }
+    requestPermission();
   }, []);
+
+  useFocusEffect(
+    // useCallback нужен для оптимизации и предотвращения лишних вызовов
+    // loadReadings будет вызываться при каждом фокусе экрана
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    React.useCallback(() => {
+      requestPermission();
+      incrementFrameId();
+    }, [])
+  );
 
   if (!permission) {
     return (
@@ -68,28 +82,12 @@ export default function CameraTab() {
           confidence: 0.8 + Math.random() * 0.2,
           type: 'gas' as const,
         };
-        // Store the reading
-        const reading = {
-          id: Date.now().toString(),
-          value: analysis.value,
-          unit: analysis.unit,
-          confidence: analysis.confidence,
-          imageUri: photo.uri,
-          timestamp: new Date().toISOString(),
-          type: analysis.type,
-        };
-        await storeReading(reading);
-        setLastReading(`${analysis.value} ${analysis.unit}`);
-        
-        // Show success message
-        Alert.alert(
-          'Чтение записано!',
-          `Обнаруженное значение: ${analysis.value} ${analysis.unit}\nУверенность: ${(analysis.confidence * 100).toFixed(1)}%`,
-          [
-            { text: 'Сделать еще одно', style: 'default' },
-            { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },
-          ]
-        );
+        // Открываем модальное окно для редактирования
+        setEditValue(String(analysis.value));
+        setEditUnit(analysis.unit);
+        setEditPhoto(photo);
+        setEditConfidence(analysis.confidence);
+        setEditModalVisible(true);
       }
     } catch (error) {
       console.error('Error taking picture:', error);
@@ -99,13 +97,44 @@ export default function CameraTab() {
     }
   };
 
+  const handleSaveReading = async () => {
+    if (!editPhoto) return;
+    const reading = {
+      id: Date.now().toString(),
+      value: Number(editValue),
+      unit: editUnit,
+      confidence: editConfidence,
+      imageUri: editPhoto.uri,
+      timestamp: new Date().toISOString(),
+      type: 'gas' as const,
+    };
+    await storeReading(reading);
+    setLastReading(`${reading.value} ${reading.unit}`);
+    setEditModalVisible(false);
+    setEditPhoto(null);
+    // Показываем сообщение об успехе
+    Alert.alert(
+      'Чтение записано!',
+      `Обнаруженное значение: ${reading.value} ${reading.unit}\nУверенность: ${(reading.confidence * 100).toFixed(1)}%`,
+      [
+        { text: 'Сделать еще одно', style: 'default' },
+        { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },
+      ]
+    );
+  };
+
+  const handleCancelEdit = () => {
+    setEditModalVisible(false);
+    setEditPhoto(null);
+  };
+
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+      <CameraView key={frameId} style={styles.camera} facing={facing} ref={cameraRef}>
         <LinearGradient
           colors={['rgba(0,0,0,0.4)', 'transparent']}
           style={styles.topOverlay}
@@ -168,6 +197,35 @@ export default function CameraTab() {
           </View>
         </LinearGradient>
       </CameraView>
+      {/* Модальное окно для ручной корректировки */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCancelEdit}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Проверьте и скорректируйте показание</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={editValue}
+              onChangeText={setEditValue}
+              placeholder="Показание"
+            />
+            <Text style={styles.unitText}>{editUnit}</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalButtonCancel} onPress={handleCancelEdit}>
+                <Text style={styles.modalButtonText}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalButtonSave} onPress={handleSaveReading}>
+                <Text style={styles.modalButtonText}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -330,5 +388,69 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
     color: '#ffffff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: 300,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 18,
+    marginBottom: 16,
+    color: '#111827',
+    textAlign: 'center',
+  },
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 18,
+    fontFamily: 'Inter-Regular',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  unitText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 8,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  modalButtonSave: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#111827',
   },
 });
