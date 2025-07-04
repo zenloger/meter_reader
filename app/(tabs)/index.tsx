@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, History, Gauge, TrendingUp } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { getStoredReadings } from '@/utils/storage';
 
 export default function HomeTab() {
@@ -17,6 +17,15 @@ export default function HomeTab() {
   useEffect(() => {
     loadStats();
   }, []);
+  
+  useFocusEffect(
+    // useCallback нужен для оптимизации и предотвращения лишних вызовов
+    // loadReadings будет вызываться при каждом фокусе экрана
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    React.useCallback(() => {
+      loadStats();
+    }, [])
+  );
 
   const loadStats = async () => {
     try {

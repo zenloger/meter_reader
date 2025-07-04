@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, Gauge, Trash2, TrendingUp } from 'lucide-react-native';
 import { getStoredReadings, deleteReading } from '@/utils/storage';
 import { MeterReading } from '@/types';
+import { useFocusEffect } from '@react-navigation/native';
+import React from 'react';
 
 export default function HistoryTab() {
   const [readings, setReadings] = useState<MeterReading[]>([]);
@@ -12,6 +14,15 @@ export default function HistoryTab() {
   useEffect(() => {
     loadReadings();
   }, []);
+
+  useFocusEffect(
+    // useCallback нужен для оптимизации и предотвращения лишних вызовов
+    // loadReadings будет вызываться при каждом фокусе экрана
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    React.useCallback(() => {
+      loadReadings();
+    }, [])
+  );
 
   const loadReadings = async () => {
     // Данные всегда берутся из SQLite через getStoredReadings

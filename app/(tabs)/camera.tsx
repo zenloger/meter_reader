@@ -17,6 +17,9 @@ export default function CameraTab() {
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
+    if (permission) {
+      requestPermission();
+    }
   }, []);
 
   if (!permission) {
