@@ -1,13 +1,12 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, Gauge, Trash2, TrendingUp, Filter } from 'lucide-react-native';
+import { Calendar, Gauge, Trash2, TrendingUp } from 'lucide-react-native';
 import { getStoredReadings, deleteReading } from '@/utils/storage';
 import { MeterReading } from '@/types';
 
 export default function HistoryTab() {
   const [readings, setReadings] = useState<MeterReading[]>([]);
-  const [filter, setFilter] = useState<'all' | 'electricity' | 'gas' | 'water'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -17,7 +16,7 @@ export default function HistoryTab() {
   const loadReadings = async () => {
     try {
       const storedReadings = await getStoredReadings();
-      setReadings(storedReadings);
+      setReadings(storedReadings.filter(r => r.type === 'gas'));
     } catch (error) {
       console.error('Error loading readings:', error);
     } finally {
@@ -47,10 +46,6 @@ export default function HistoryTab() {
     );
   };
 
-  const filteredReadings = readings.filter(reading => 
-    filter === 'all' || reading.type === filter
-  );
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -68,50 +63,6 @@ export default function HistoryTab() {
     });
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'electricity':
-        return '#f59e0b';
-      case 'gas':
-        return '#ef4444';
-      case 'water':
-        return '#3b82f6';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'electricity':
-        return '⚡';
-      case 'gas':
-        return '🔥';
-      case 'water':
-        return '💧';
-      default:
-        return '📊';
-    }
-  };
-
-  const FilterButton = ({ filterType, label }: { filterType: typeof filter; label: string }) => (
-    <TouchableOpacity
-      style={[
-        styles.filterButton,
-        filter === filterType && styles.filterButtonActive
-      ]}
-      onPress={() => setFilter(filterType)}
-      activeOpacity={0.8}
-    >
-      <Text style={[
-        styles.filterButtonText,
-        filter === filterType && styles.filterButtonTextActive
-      ]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -126,47 +77,29 @@ export default function HistoryTab() {
         colors={['#2563eb', '#1d4ed8']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>История чтений</Text>
+        <Text style={styles.headerTitle}>История газовых чтений</Text>
         <Text style={styles.headerSubtitle}>
           {readings.length} всего чтений
         </Text>
       </LinearGradient>
 
-      <View style={styles.filterContainer}>
-        <View style={styles.filterRow}>
-          <Filter size={20} color="#6b7280" />
-          <Text style={styles.filterLabel}>Фильтр по типу:</Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          <FilterButton filterType="all" label="Все" />
-          <FilterButton filterType="electricity" label="Электричество" />
-          <FilterButton filterType="gas" label="Газ" />
-          <FilterButton filterType="water" label="Вода" />
-        </ScrollView>
-      </View>
-
       <ScrollView style={styles.readingsList} showsVerticalScrollIndicator={false}>
-        {filteredReadings.length === 0 ? (
+        {readings.length === 0 ? (
           <View style={styles.emptyState}>
             <Gauge size={64} color="#d1d5db" />
             <Text style={styles.emptyStateTitle}>Нет чтений</Text>
             <Text style={styles.emptyStateText}>
-              {filter === 'all' 
-                ? 'Сделайте свое первое чтение, чтобы начать'
-                : `Нет ${filter} чтений`
-              }
+              Сделайте свое первое чтение, чтобы начать
             </Text>
           </View>
         ) : (
-          filteredReadings.map((reading) => (
+          readings.map((reading) => (
             <View key={reading.id} style={styles.readingCard}>
               <View style={styles.readingHeader}>
                 <View style={styles.readingInfo}>
                   <View style={styles.readingType}>
-                    <Text style={styles.typeEmoji}>{getTypeIcon(reading.type)}</Text>
-                    <Text style={[styles.typeText, { color: getTypeColor(reading.type) }]}>
-                      {reading.type}
-                    </Text>
+                    <Text style={styles.typeEmoji}>🔥</Text>
+                    <Text style={[styles.typeText, { color: '#ef4444' }]}>Газ</Text>
                   </View>
                   <Text style={styles.readingValue}>
                     {reading.value} {reading.unit}
@@ -229,44 +162,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e0e7ff',
     opacity: 0.9,
-  },
-  filterContainer: {
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  filterLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 8,
-  },
-  filterScroll: {
-    flexDirection: 'row',
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: '#2563eb',
-  },
-  filterButtonText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  filterButtonTextActive: {
-    color: '#ffffff',
   },
   readingsList: {
     flex: 1,
