@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Camera, FlipHorizontal, Zap, Check } from 'lucide-react-native';
+import { Camera, FlipHorizontal, Zap, Check, Sun } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
@@ -20,6 +20,7 @@ export default function CameraTab() {
   const [editPhoto, setEditPhoto] = useState<any>(null);
   const [editConfidence, setEditConfidence] = useState(0.9);
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
+  const [torch, setTorch] = useState(false);
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -134,7 +135,13 @@ export default function CameraTab() {
 
   return (
     <View style={styles.container}>
-      <CameraView key={frameId} style={styles.camera} facing={facing} ref={cameraRef}>
+      <CameraView
+        key={frameId}
+        style={styles.camera}
+        facing={facing}
+        ref={cameraRef}
+        enableTorch={torch}
+      >
         <LinearGradient
           colors={['rgba(0,0,0,0.4)', 'transparent']}
           style={styles.topOverlay}
@@ -171,7 +178,6 @@ export default function CameraTab() {
             >
               <FlipHorizontal size={24} color="#ffffff" />
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
               onPress={takePicture}
@@ -189,7 +195,7 @@ export default function CameraTab() {
 
             <TouchableOpacity
               style={styles.controlButton}
-              onPress={() => router.push('/(tabs)/history')}
+              onPress={() => setTorch(t => !t)}
               activeOpacity={0.8}
             >
               <Zap size={24} color="#ffffff" />
@@ -220,7 +226,7 @@ export default function CameraTab() {
                 <Text style={styles.modalButtonText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalButtonSave} onPress={handleSaveReading}>
-                <Text style={styles.modalButtonText}>Сохранить</Text>
+                <Text style={styles.modalButtonTextSave}>Сохранить</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -451,6 +457,11 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
-    color: '#111827',
+    color: '#ааа',
+  },
+  modalButtonTextSave: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#ffffff',
   },
 });
