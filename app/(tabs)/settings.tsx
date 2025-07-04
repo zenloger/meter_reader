@@ -1,9 +1,15 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Settings, Trash2, Download, Info, CircleHelp as HelpCircle, Star } from 'lucide-react-native';
-import { clearAllReadings } from '@/utils/storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import React from 'react';
+import { getStoredReadings, clearAllReadings } from '@/utils/storage';
 
 export default function SettingsTab() {
+  const [exportModalVisible, setExportModalVisible] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
+
   const handleClearData = () => {
     Alert.alert(
       'Удалить все данные',
@@ -28,11 +34,46 @@ export default function SettingsTab() {
   };
 
   const handleExportData = () => {
-    Alert.alert(
-      'Экспорт данных',
-      'Эта функция будет доступна в будущем обновлении. Вы сможете экспортировать свои показания в CSV или JSON.',
-      [{ text: 'OK' }]
-    );
+    setExportModalVisible(true);
+  };
+
+  const exportAndShare = async (format: 'json' | 'csv') => {
+    setIsExporting(true);
+    try {
+      const readings = await getStoredReadings();
+      if (!readings.length) {
+        Alert.alert('Нет данных', 'Нет показаний для экспорта.');
+        setExportModalVisible(false);
+        setIsExporting(false);
+        return;
+      }
+      let fileUri = '';
+      if (format === 'json') {
+        const json = JSON.stringify(readings, null, 2);
+        fileUri = FileSystem.documentDirectory + 'meter_readings.json';
+        await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+      } else {
+        const csvHeader = 'id,value,unit,confidence,imageUri,timestamp,type';
+        const csvRows = readings.map(r =>
+          [r.id, r.value, r.unit, r.confidence, r.imageUri, r.timestamp, r.type]
+            .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+        );
+        const csv = [csvHeader, ...csvRows].join('\n');
+        fileUri = FileSystem.documentDirectory + 'meter_readings.csv';
+        await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      }
+      setExportModalVisible(false);
+      setIsExporting(false);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert('Готово', `Файл сохранен: ${fileUri}`);
+      }
+    } catch (e) {
+      setIsExporting(false);
+      setExportModalVisible(false);
+      Alert.alert('Ошибка', 'Не удалось экспортировать файл.');
+    }
   };
 
   const handleAbout = () => {
@@ -138,6 +179,39 @@ export default function SettingsTab() {
           </Text>
         </View>
       </ScrollView>
+      {/* Модальное окно выбора формата экспорта */}
+      <Modal
+        visible={exportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Экспорт данных</Text>
+            <Text style={styles.modalSubtitle}>Выберите формат файла для экспорта</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButtonSave, { opacity: isExporting ? 0.6 : 1 }]}
+                onPress={() => exportAndShare('json')}
+                disabled={isExporting}
+              >
+                <Text style={styles.modalButtonTextSave}>JSON</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButtonSave, { backgroundColor: '#059669', opacity: isExporting ? 0.6 : 1 }]}
+                onPress={() => exportAndShare('csv')}
+                disabled={isExporting}
+              >
+                <Text style={styles.modalButtonTextSave}>CSV</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setExportModalVisible(false)} disabled={isExporting}>
+              <Text style={styles.modalButtonText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -236,5 +310,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: 300,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 18,
+    marginBottom: 8,
+    color: '#111827',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 15,
+    color: '#6b7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+  },
+  modalButtonSave: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    width: '100%',
+  },
+  modalButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#111827',
+  },
+  modalButtonTextSave: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#ffffff',
   },
 });
