@@ -16,7 +16,7 @@ export default function CameraTab() {
   const router = useRouter();
 
   useEffect(() => {
-    initDB();
+    // initDB больше не нужен, инициализация происходит автоматически
   }, []);
 
   if (!permission) {
@@ -50,6 +50,7 @@ export default function CameraTab() {
     setIsProcessing(true);
     
     try {
+      requestPermission();
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: true,

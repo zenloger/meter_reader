@@ -28,9 +28,9 @@ export const initDB = async () => {
 
 export const getStoredReadings = async (): Promise<MeterReading[]> => {
   await ensureDBInitialized();
-  const rawResult: unknown = await db.execAsync('SELECT * FROM readings ORDER BY timestamp DESC;');
+  const rawResult: unknown = await db.getAllAsync('SELECT * FROM readings ORDER BY timestamp DESC');
   const result = rawResult as any[];
-  return result && result[0]?.rows ? (result[0].rows as MeterReading[]) : [];
+  return result ? (result as MeterReading[]) : [];
 };
 
 function escapeStr(str: string) {
@@ -39,9 +39,22 @@ function escapeStr(str: string) {
 
 export const storeReading = async (reading: MeterReading): Promise<void> => {
   await ensureDBInitialized();
-  await db.execAsync(
-    `INSERT INTO readings (id, value, unit, confidence, imageUri, timestamp, type) VALUES ('${escapeStr(reading.id)}', ${reading.value}, '${escapeStr(reading.unit)}', ${reading.confidence}, '${escapeStr(reading.imageUri)}', '${escapeStr(reading.timestamp)}', '${escapeStr(reading.type)}');`
+  const statement = await db.prepareAsync(
+    `INSERT INTO readings (id, value, unit, confidence, imageUri, timestamp, type) VALUES ($id, $value, $unit, $confidence, $imageUri, $timestamp, $type)`
   );
+
+  const result = await statement.executeAsync({
+    $id: escapeStr(reading.id),
+    $value: reading.value,
+    $unit: escapeStr(reading.unit),
+    $confidence: reading.confidence,
+    $imageUri: escapeStr(reading.imageUri),
+    $timestamp: escapeStr(reading.timestamp),
+    $type: escapeStr(reading.type),
+  });
+
+  console.log(result);
+  await statement.finalizeAsync();
 };
 
 export const deleteReading = async (id: string): Promise<void> => {
