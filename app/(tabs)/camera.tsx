@@ -28,12 +28,12 @@ export default function CameraTab() {
       <View style={styles.container}>
         <View style={styles.permissionContainer}>
           <Camera size={64} color="#2563eb" />
-          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionTitle}>Требуется разрешение на камеру</Text>
           <Text style={styles.permissionMessage}>
-            We need access to your camera to capture meter readings
+            Нам нужно доступ к вашей камере для захвата показаний счетчика
           </Text>
           <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+            <Text style={styles.permissionButtonText}>Предоставить разрешение</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -71,17 +71,17 @@ export default function CameraTab() {
         
         // Show success message
         Alert.alert(
-          'Reading Captured!',
-          `Detected value: ${analysis.value} ${analysis.unit}\nConfidence: ${(analysis.confidence * 100).toFixed(1)}%`,
+          'Чтение записано!',
+          `Обнаруженное значение: ${analysis.value} ${analysis.unit}\nУверенность: ${(analysis.confidence * 100).toFixed(1)}%`,
           [
-            { text: 'Take Another', style: 'default' },
-            { text: 'View History', onPress: () => router.push('/(tabs)/history') },
+            { text: 'Сделать еще одно', style: 'default' },
+            { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },
           ]
         );
       }
     } catch (error) {
       console.error('Error taking picture:', error);
-      Alert.alert('Error', 'Failed to process the image. Please try again.');
+      Alert.alert('Ошибка', 'Не удалось обработать изображение. Пожалуйста, попробуйте еще раз.');
     } finally {
       setIsProcessing(false);
     }
@@ -99,7 +99,7 @@ export default function CameraTab() {
           style={styles.topOverlay}
         >
           <Text style={styles.headerText}>Meter Reader</Text>
-          <Text style={styles.subHeaderText}>Position meter display in center</Text>
+          <Text style={styles.subHeaderText}>Поместите дисплей счетчика в центр</Text>
         </LinearGradient>
 
         <View style={styles.cameraOverlay}>

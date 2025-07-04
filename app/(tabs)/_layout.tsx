@@ -25,7 +25,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Главная',
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
           ),
@@ -34,7 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="camera"
         options={{
-          title: 'Camera',
+          title: 'Камера',
           tabBarIcon: ({ size, color }) => (
             <Camera size={size} color={color} />
           ),
@@ -43,7 +43,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: 'История',
           tabBarIcon: ({ size, color }) => (
             <History size={size} color={color} />
           ),
@@ -52,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: 'Настройки',
           tabBarIcon: ({ size, color }) => (
             <Settings size={size} color={color} />
           ),

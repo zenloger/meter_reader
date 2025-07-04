@@ -63,34 +63,34 @@ export default function HomeTab() {
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Meter Reader</Text>
-        <Text style={styles.headerSubtitle}>Track your utility readings</Text>
+        <Text style={styles.headerSubtitle}>Отслеживайте свои показания</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.statsGrid}>
           <StatCard
-            title="Total Readings"
+            title="Всего чтений"
             value={stats.totalReadings}
             icon={Gauge}
             color="#2563eb"
           />
           <StatCard
-            title="This Month"
+            title="За этот месяц"
             value={stats.thisMonth}
             icon={TrendingUp}
             color="#059669"
           />
           <StatCard
-            title="Last Reading"
+            title="Последнее чтение"
             value={stats.lastReading || 'None'}
-            subtitle={stats.lastReading ? 'Latest' : 'No readings yet'}
+            subtitle={stats.lastReading ? 'Последнее' : 'Нет данных'}
             icon={History}
             color="#7c3aed"
           />
         </View>
 
         <View style={styles.actionSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>Быстрые действия</Text>
           
           <TouchableOpacity
             style={styles.primaryAction}
@@ -101,7 +101,7 @@ export default function HomeTab() {
               style={styles.actionGradient}
             >
               <Camera size={24} color="#ffffff" />
-              <Text style={styles.actionText}>Take New Reading</Text>
+              <Text style={styles.actionText}>Сделать новое чтение</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -110,24 +110,24 @@ export default function HomeTab() {
             onPress={() => router.push('/(tabs)/history')}
           >
             <History size={20} color="#2563eb" />
-            <Text style={styles.secondaryActionText}>View History</Text>
+            <Text style={styles.secondaryActionText}>Просмотр истории</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.tipsSection}>
-          <Text style={styles.sectionTitle}>Tips for Better Readings</Text>
+          <Text style={styles.sectionTitle}>Советы для лучших чтений</Text>
           <View style={styles.tipsList}>
             <View style={styles.tipItem}>
               <View style={styles.tipBullet} />
-              <Text style={styles.tipText}>Ensure good lighting when taking photos</Text>
+              <Text style={styles.tipText}>Убедитесь, что освещение хорошее при фотографировании</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipBullet} />
-              <Text style={styles.tipText}>Keep the meter display centered in frame</Text>
+              <Text style={styles.tipText}>Центр дисплея в центре кадра</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipBullet} />
-              <Text style={styles.tipText}>Hold the camera steady for clear images</Text>
+              <Text style={styles.tipText}>Удерживайте камеру стабильно для четких изображений</Text>
             </View>
           </View>
         </View>

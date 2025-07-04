@@ -27,8 +27,8 @@ export default function HistoryTab() {
 
   const handleDeleteReading = async (id: string) => {
     Alert.alert(
-      'Delete Reading',
-      'Are you sure you want to delete this reading?',
+      'Удалить чтение',
+      'Вы уверены, что хотите удалить это чтение?',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -114,7 +114,7 @@ export default function HistoryTab() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading readings...</Text>
+        <Text style={styles.loadingText}>Загрузка чтений...</Text>
       </View>
     );
   }
@@ -125,22 +125,22 @@ export default function HistoryTab() {
         colors={['#2563eb', '#1d4ed8']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Reading History</Text>
+        <Text style={styles.headerTitle}>История чтений</Text>
         <Text style={styles.headerSubtitle}>
-          {readings.length} total readings
+          {readings.length} всего чтений
         </Text>
       </LinearGradient>
 
       <View style={styles.filterContainer}>
         <View style={styles.filterRow}>
           <Filter size={20} color="#6b7280" />
-          <Text style={styles.filterLabel}>Filter by type:</Text>
+          <Text style={styles.filterLabel}>Фильтр по типу:</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          <FilterButton filterType="all" label="All" />
-          <FilterButton filterType="electricity" label="Electricity" />
-          <FilterButton filterType="gas" label="Gas" />
-          <FilterButton filterType="water" label="Water" />
+          <FilterButton filterType="all" label="Все" />
+          <FilterButton filterType="electricity" label="Электричество" />
+          <FilterButton filterType="gas" label="Газ" />
+          <FilterButton filterType="water" label="Вода" />
         </ScrollView>
       </View>
 
@@ -148,11 +148,11 @@ export default function HistoryTab() {
         {filteredReadings.length === 0 ? (
           <View style={styles.emptyState}>
             <Gauge size={64} color="#d1d5db" />
-            <Text style={styles.emptyStateTitle}>No readings yet</Text>
+            <Text style={styles.emptyStateTitle}>Нет чтений</Text>
             <Text style={styles.emptyStateText}>
               {filter === 'all' 
-                ? 'Take your first meter reading to get started'
-                : `No ${filter} readings found`
+                ? 'Сделайте свое первое чтение, чтобы начать'
+                : `Нет ${filter} чтений`
               }
             </Text>
           </View>
@@ -183,13 +183,13 @@ export default function HistoryTab() {
                 <View style={styles.detailRow}>
                   <Calendar size={16} color="#6b7280" />
                   <Text style={styles.detailText}>
-                    {formatDate(reading.timestamp)} at {formatTime(reading.timestamp)}
+                    {formatDate(reading.timestamp)} в {formatTime(reading.timestamp)}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <TrendingUp size={16} color="#6b7280" />
                   <Text style={styles.detailText}>
-                    Confidence: {(reading.confidence * 100).toFixed(1)}%
+                    Уверенность: {(reading.confidence * 100).toFixed(1)}%
                   </Text>
                 </View>
               </View>

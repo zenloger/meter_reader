@@ -6,20 +6,20 @@ import { clearAllReadings } from '@/utils/storage';
 export default function SettingsTab() {
   const handleClearData = () => {
     Alert.alert(
-      'Clear All Data',
-      'Are you sure you want to delete all meter readings? This action cannot be undone.',
+      'Удалить все данные',
+      'Вы уверены, что хотите удалить все показания счетчика? Это действие не может быть отменено.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         { 
-          text: 'Delete All', 
+          text: 'Удалить все', 
           style: 'destructive',
           onPress: async () => {
             try {
               await clearAllReadings();
-              Alert.alert('Success', 'All readings have been deleted.');
+              Alert.alert('Успешно', 'Все показания удалены.');
             } catch (error) {
-              console.error('Error clearing data:', error);
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
+              console.error('Ошибка при очистке данных:', error);
+              Alert.alert('Ошибка', 'Не удалось очистить данные. Пожалуйста, попробуйте еще раз.');
             }
           }
         },
@@ -29,24 +29,24 @@ export default function SettingsTab() {
 
   const handleExportData = () => {
     Alert.alert(
-      'Export Data',
-      'This feature will be available in a future update. You\'ll be able to export your readings as CSV or JSON.',
+      'Экспорт данных',
+      'Эта функция будет доступна в будущем обновлении. Вы сможете экспортировать свои показания в CSV или JSON.',
       [{ text: 'OK' }]
     );
   };
 
   const handleAbout = () => {
     Alert.alert(
-      'About Meter Reader',
-      'Version 1.0.0\n\nA smart utility meter reading app with AI-powered image analysis.\n\nBuilt with React Native and Expo.',
+      'О Meter Reader',
+      'Версия 1.0.0\n\nУмное приложение для чтения показаний счетчиков с использованием ИИ для анализа изображений.\n\nРазработано с использованием React Native и Expo.',
       [{ text: 'OK' }]
     );
   };
 
   const handleHelp = () => {
     Alert.alert(
-      'Help & Support',
-      '1. Point your camera at the meter display\n2. Ensure good lighting\n3. Keep the numbers centered\n4. Tap the capture button\n\nFor best results, take photos in well-lit conditions.',
+      'Помощь и поддержка',
+      '1. Направьте камеру на дисплей счетчика\n2. Убедитесь, что освещение хорошее\n3. Центрируйте цифры\n4. Нажмите кнопку захвата\n\nДля лучших результатов, сделайте фотографии в хорошо освещенных условиях.',
       [{ text: 'OK' }]
     );
   };
@@ -76,25 +76,25 @@ export default function SettingsTab() {
         colors={['#2563eb', '#1d4ed8']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Settings</Text>
-        <Text style={styles.headerSubtitle}>Manage your app preferences</Text>
+        <Text style={styles.headerTitle}>Настройки</Text>
+        <Text style={styles.headerSubtitle}>Управляйте своими настройками</Text>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Management</Text>
+          <Text style={styles.sectionTitle}>Управление данными</Text>
           <View style={styles.sectionContent}>
             <SettingsItem
               icon={Download}
-              title="Export Data"
-              subtitle="Save your readings as CSV or JSON"
+              title="Экспорт данных"
+              subtitle="Сохраните свои показания в CSV или JSON"
               onPress={handleExportData}
               color="#059669"
             />
             <SettingsItem
               icon={Trash2}
-              title="Clear All Data"
-              subtitle="Delete all stored readings"
+              title="Очистка всех данных"
+              subtitle="Удалите все сохраненные показания"
               onPress={handleClearData}
               color="#ef4444"
               destructive
@@ -103,26 +103,26 @@ export default function SettingsTab() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>Поддержка</Text>
           <View style={styles.sectionContent}>
             <SettingsItem
               icon={HelpCircle}
-              title="Help & Tips"
-              subtitle="Learn how to take better readings"
+              title="Помощь и советы"
+              subtitle="Узнайте, как сделать лучшее чтение"
               onPress={handleHelp}
               color="#7c3aed"
             />
             <SettingsItem
               icon={Star}
-              title="Rate App"
-              subtitle="Help us improve by rating the app"
-              onPress={() => Alert.alert('Rate App', 'This would open the app store rating page.')}
+              title="Оценить приложение"
+              subtitle="Помогите нам улучшить приложение, оценив его"
+              onPress={() => Alert.alert('Оценить приложение', 'Это откроет страницу рейтинга в магазине приложения')}
               color="#f59e0b"
             />
             <SettingsItem
               icon={Info}
-              title="About"
-              subtitle="App version and information"
+              title="О Meter Reader"
+              subtitle="Версия приложения и информация"
               onPress={handleAbout}
               color="#6b7280"
             />
@@ -134,7 +134,7 @@ export default function SettingsTab() {
             Meter Reader v1.0.0
           </Text>
           <Text style={styles.footerSubtext}>
-            Made with ❤️ using React Native & Expo
+            Разработано с ❤️ React Native и Expo
           </Text>
         </View>
       </ScrollView>
@@ -220,8 +220,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
+    textAlign: 'center',
     paddingTop: 40,
     paddingBottom: 20,
+    marginBottom: 20,
   },
   footerText: {
     fontFamily: 'Inter-Medium',
@@ -233,5 +235,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: 14,
     color: '#9ca3af',
+    textAlign: 'center',
   },
 });
