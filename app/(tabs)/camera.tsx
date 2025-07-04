@@ -126,6 +126,7 @@ export default function CameraTab() {
             <TouchableOpacity
               style={styles.controlButton}
               onPress={toggleCameraFacing}
+              activeOpacity={0.8}
             >
               <FlipHorizontal size={24} color="#ffffff" />
             </TouchableOpacity>
@@ -134,6 +135,7 @@ export default function CameraTab() {
               style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
               onPress={takePicture}
               disabled={isProcessing}
+              activeOpacity={0.8}
             >
               <View style={styles.captureButtonInner}>
                 {isProcessing ? (
@@ -147,6 +149,7 @@ export default function CameraTab() {
             <TouchableOpacity
               style={styles.controlButton}
               onPress={() => router.push('/(tabs)/history')}
+              activeOpacity={0.8}
             >
               <Zap size={24} color="#ffffff" />
             </TouchableOpacity>

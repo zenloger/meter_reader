@@ -95,6 +95,7 @@ export default function HomeTab() {
           <TouchableOpacity
             style={styles.primaryAction}
             onPress={() => router.push('/(tabs)/camera')}
+            activeOpacity={0.8}
           >
             <LinearGradient
               colors={['#2563eb', '#1d4ed8']}
@@ -108,6 +109,7 @@ export default function HomeTab() {
           <TouchableOpacity
             style={styles.secondaryAction}
             onPress={() => router.push('/(tabs)/history')}
+            activeOpacity={0.8}
           >
             <History size={20} color="#2563eb" />
             <Text style={styles.secondaryActionText}>Просмотр истории</Text>

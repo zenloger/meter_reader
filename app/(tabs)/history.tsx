@@ -101,6 +101,7 @@ export default function HistoryTab() {
         filter === filterType && styles.filterButtonActive
       ]}
       onPress={() => setFilter(filterType)}
+      activeOpacity={0.8}
     >
       <Text style={[
         styles.filterButtonText,
@@ -174,6 +175,7 @@ export default function HistoryTab() {
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDeleteReading(reading.id)}
+                  activeOpacity={0.8}
                 >
                   <Trash2 size={18} color="#ef4444" />
                 </TouchableOpacity>
