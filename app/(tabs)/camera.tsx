@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun } from 'lucide-react-native';
@@ -7,9 +7,12 @@ import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import useYolo from '@/hooks/useYolo';
+import Canvas, { Image } from 'react-native-canvas';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function CameraTab() {
-  const { handlePhoto } = useYolo();
+  const { frameProcessor, boxes } = useYolo();
+  const canvasRef = React.useRef<Canvas>(null);
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -38,6 +41,36 @@ export default function CameraTab() {
       incrementFrameId();
     }, [])
   );
+
+  React.useLayoutEffect(() => {
+    const interval = setInterval(() => {
+      if (!canvasRef.current) return;
+      if (!cameraRef.current) return;
+  
+      const ctx = canvasRef.current.getContext('2d');
+      canvasRef.current.width = Dimensions.get('window').width;
+      canvasRef.current.height = Dimensions.get('window').height;
+      const width = canvasRef.current.width;
+      const height = canvasRef.current.height;
+      let cc = [...boxes, {
+        x: 0.03,
+        y: 0.03,
+        w: 0.9,
+        h: 0.9
+      }];
+      for (let box of cc) {
+        ctx.rect(box.x * width, box.y * height, box.w * width, box.h * height);
+        // console.log(box.x * width, box.y * height, box.w * width, box.h * height);
+      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#0f0";
+      ctx.stroke();
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    }
+  }, [boxes])
 
   if (!hasPermission) {
     return (
@@ -76,14 +109,12 @@ export default function CameraTab() {
     setIsProcessing(true);
     
     try {
-      const photo: PhotoFile = await cameraRef.current.takePhoto({
-        flash: 'on',
-      });
+      const photo: PhotoFile = await cameraRef.current.takePhoto();
 
       if (photo) {
         // Вызываем handlePhoto для анализа изображения
-        const analysis = await handlePhoto(photo);
-        
+        const analysis = {} as any;
+
         // Открываем модальное окно для редактирования
         setEditValue(String(analysis.value || 0));
         setEditUnit(analysis.unit || 'м³');
@@ -145,7 +176,9 @@ export default function CameraTab() {
           isActive={true}
           ref={cameraRef}
           photo={true}
+          frameProcessor={frameProcessor}
         />
+        <Canvas style={styles.camera} ref={canvasRef} />
         <LinearGradient
           colors={['rgba(0,0,0,0.4)', 'transparent']}
           style={styles.topOverlay}
@@ -236,6 +269,9 @@ export default function CameraTab() {
           </View>
         </View>
       </Modal>
+      <View style={{position: 'absolute', top: 0, left: 0, width: 100, height: 100}}>
+        <Canvas ref={canvasRef} />
+      </View>
     </View>
   );
 }
