@@ -1,18 +1,20 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Camera, FlipHorizontal, Zap, Check, Sun } from 'lucide-react-native';
+import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
 import { useFocusEffect, useRouter } from 'expo-router';
+import useYolo from '@/hooks/useYolo';
 
 export default function CameraTab() {
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [permission, requestPermission] = useCameraPermissions();
+  const { handlePhoto } = useYolo();
+  const device = useCameraDevice('back');
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastReading, setLastReading] = useState<string | null>(null);
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<Camera>(null);
   const router = useRouter();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -37,19 +39,11 @@ export default function CameraTab() {
     }, [])
   );
 
-  if (!permission) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
+  if (!hasPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.permissionContainer}>
-          <Camera size={64} color="#2563eb" />
+          <CameraIcon size={64} color="#2563eb" />
           <Text style={styles.permissionTitle}>Требуется разрешение на камеру</Text>
           <Text style={styles.permissionMessage}>
             Нам нужно доступ к вашей камере для захвата показаний счетчика
@@ -62,32 +56,39 @@ export default function CameraTab() {
     );
   }
 
+  if (device == null) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <CameraIcon size={64} color="#2563eb" />
+          <Text style={styles.permissionTitle}>Камера недоступна</Text>
+          <Text style={styles.permissionMessage}>
+            Не удалось получить доступ к камере устройства
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const takePicture = async () => {
     if (!cameraRef.current || isProcessing) return;
 
     setIsProcessing(true);
     
     try {
-      requestPermission();
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: true,
+      const photo: PhotoFile = await cameraRef.current.takePhoto({
+        flash: 'on',
       });
 
       if (photo) {
-        // Мокаем результат анализа
-        const randomValue = Math.floor(Math.random() * 10000) / 100;
-        const analysis = {
-          value: randomValue,
-          unit: 'м³',
-          confidence: 0.8 + Math.random() * 0.2,
-          type: 'gas' as const,
-        };
+        // Вызываем handlePhoto для анализа изображения
+        const analysis = await handlePhoto(photo);
+        
         // Открываем модальное окно для редактирования
-        setEditValue(String(analysis.value));
-        setEditUnit(analysis.unit);
+        setEditValue(String(analysis.value || 0));
+        setEditUnit(analysis.unit || 'м³');
         setEditPhoto(photo);
-        setEditConfidence(analysis.confidence);
+        setEditConfidence(analysis.confidence || 0.9);
         setEditModalVisible(true);
       }
     } catch (error) {
@@ -105,7 +106,7 @@ export default function CameraTab() {
       value: Number(editValue),
       unit: editUnit,
       confidence: editConfidence,
-      imageUri: editPhoto.uri,
+      imageUri: editPhoto.path,
       timestamp: new Date().toISOString(),
       type: 'gas' as const,
     };
@@ -130,18 +131,21 @@ export default function CameraTab() {
   };
 
   const toggleCameraFacing = () => {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    // Для react-native-vision-camera нужно переключать device
+    // Это будет реализовано позже
   };
 
   return (
     <View style={styles.container}>
-      <CameraView
-        key={frameId}
-        style={styles.camera}
-        facing={facing}
-        ref={cameraRef}
-        enableTorch={torch}
-      >
+      <View style={styles.cameraContainer}>
+        <Camera
+          key={frameId}
+          style={styles.camera}
+          device={device}
+          isActive={true}
+          ref={cameraRef}
+          photo={true}
+        />
         <LinearGradient
           colors={['rgba(0,0,0,0.4)', 'transparent']}
           style={styles.topOverlay}
@@ -188,7 +192,7 @@ export default function CameraTab() {
                 {isProcessing ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Camera size={32} color="#ffffff" />
+                  <CameraIcon size={32} color="#ffffff" />
                 )}
               </View>
             </TouchableOpacity>
@@ -202,7 +206,7 @@ export default function CameraTab() {
             </TouchableOpacity>
           </View>
         </LinearGradient>
-      </CameraView>
+      </View>
       {/* Модальное окно для ручной корректировки */}
       <Modal
         visible={editModalVisible}
@@ -241,8 +245,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  cameraContainer: {
+    height: '100%',
+  },
   camera: {
+    width: '100%',
+    height: '100%',
     flex: 1,
+    position: 'absolute'
   },
   topOverlay: {
     paddingTop: 60,
