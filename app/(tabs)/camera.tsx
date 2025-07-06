@@ -296,7 +296,7 @@ export default function CameraTab() {
       const maskBase64 = Buffer.from(maskBuffer).toString('base64');
       const maskUri = FileSystem.cacheDirectory + `mask_${Date.now()}.png`;
       await FileSystem.writeAsStringAsync(maskUri, maskBase64, { encoding: FileSystem.EncodingType.Base64 });
-    setPhoto(maskUri);
+      setPhoto(maskUri);
       // Теперь maskUri содержит путь к PNG-маске
 
       for (let box of bboxes) {

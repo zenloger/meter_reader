@@ -212,7 +212,6 @@ export default function useYolo() {
 
     const frameProcessor = async (frame: Frame) => {
         'worklet'
-        console.log(!!model);
         if (!model) return;
 
         if (state.value > 0) {
