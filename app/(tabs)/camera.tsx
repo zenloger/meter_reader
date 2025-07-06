@@ -174,30 +174,35 @@ export default function CameraTab() {
   };
 
   const handleSaveReading = async () => {
-    if (!editPhoto) return;
-    const reading = {
-      id: Date.now().toString(),
-      value: Number(inputValue),
-      unit: editUnit,
-      confidence: editConfidence,
-      imageUri: editPhoto.path,
-      timestamp: new Date().toISOString(),
-      type: 'gas' as const,
-    };
-    await storeReading(reading);
-    setLastReading(`${reading.value} ${reading.unit}`);
-    setEditModalVisible(false);
-    setEditPhoto(null);
-    setInputValue('');
-    // Показываем сообщение об успехе
-    Alert.alert(
-      'Чтение записано!',
-      `Обнаруженное значение: ${reading.value} ${reading.unit}\nУверенность: ${(reading.confidence * 100).toFixed(1)}%`,
-      [
-        { text: 'Сделать еще одно', style: 'default' },
-        { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },
-      ]
-    );
+    try {
+      const reading = {
+        id: Date.now().toString(),
+        value: Number(inputValue),
+        unit: editUnit,
+        confidence: editConfidence,
+        imageUri: `file:///${photo?.path}`,
+        timestamp: new Date().toISOString(),
+        type: 'gas' as const,
+      };
+      await storeReading(reading);
+      setLastReading(`${reading.value} ${reading.unit}`);
+      setEditModalVisible(false);
+      setEditPhoto(null);
+      setPhoto(null);
+      setInputValue('');
+      // Показываем сообщение об успехе
+      Alert.alert(
+        'Чтение записано!',
+        `Обнаруженное значение: ${reading.value} ${reading.unit}\nУверенность: ${(reading.confidence * 100).toFixed(1)}%`,
+        [
+          { text: 'Сделать еще одно', style: 'default' },
+          { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },
+        ]
+      );
+    }
+    catch (e) {
+      console.log(e);
+    }
   };
 
   console.log(photo);
@@ -265,12 +270,6 @@ export default function CameraTab() {
           <Text style={styles.subHeaderText}>Поместите дисплей счетчика в центр</Text>
           <Text style={styles.panelDescription}>AI-powered meter reading • v1.0</Text>
         </View>
-        {lastReading && (
-          <View style={styles.lastReadingContainer}>
-            <Check size={16} color="#10b981" />
-            <Text style={styles.lastReadingText}>Last: {lastReading}</Text>
-          </View>
-        )}
         <View style={styles.controlsContainer}>
           <TouchableOpacity
             style={styles.controlButton}
@@ -346,7 +345,7 @@ export default function CameraTab() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.saveButton, { opacity: inputValue.trim() ? 1 : 0.5 }]}
-            onPress={() => setPhoto(null)}
+            onPress={() => handleSaveReading()}
             disabled={!inputValue.trim()}
           >
             <Save size={20} color="#fff" style={{ marginRight: 8 }} />
