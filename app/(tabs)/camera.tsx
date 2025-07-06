@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon } from 'lucide-react-native';
+import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
@@ -192,68 +192,67 @@ export default function CameraTab() {
           photo={true}
           // frameProcessor={frameProcessor}
         />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.4)', 'transparent']}
-          style={styles.topOverlay}
-        >
-          <Text style={styles.headerText}>Meter Reader</Text>
-          <Text style={styles.subHeaderText}>Поместите дисплей счетчика в центр</Text>
-        </LinearGradient>
-
         <View style={styles.cameraOverlay}>
           <View style={styles.frameGuide}>
-            <View style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topLeft, {
+              display: fpsShown ? 'none' : 'flex'
+            }]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
         </View>
-
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.6)']}
-          style={styles.bottomOverlay}
-        >
-          {lastReading && (
-            <View style={styles.lastReadingContainer}>
-              <Check size={16} color="#10b981" />
-              <Text style={styles.lastReadingText}>Last: {lastReading}</Text>
-            </View>
-          )}
-          
-          <View style={styles.controlsContainer}>
-            <TouchableOpacity
-              style={styles.controlButton}
-              onPress={() => setFpsShown(t => !t)}
-              activeOpacity={0.8}
-              disabled
-            >
-              <WatchIcon disabled size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
-              onPress={takePicture}
-              disabled={isProcessing}
-              activeOpacity={0.8}
-            >
-              <View style={styles.captureButtonInner}>
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <CameraIcon size={32} color="#ffffff" />
-                )}
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.controlButton}
-              onPress={() => setTorch(t => !t)}
-              activeOpacity={0.8}
-            >
-              <Zap size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
       </View>
+      {/* Всё, что ниже — под камерой */}
+      <LinearGradient
+        colors={["#232526", "#414345"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.infoBlock}
+      >
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <Sparkles size={32} color="#ffd700" style={{ marginBottom: 4 }} />
+          <Text style={styles.headerText}>Meter Reader</Text>
+          <Text style={styles.subHeaderText}>Поместите дисплей счетчика в центр</Text>
+          <Text style={styles.panelDescription}>AI-powered meter reading • v1.0</Text>
+        </View>
+        {lastReading && (
+          <View style={styles.lastReadingContainer}>
+            <Check size={16} color="#10b981" />
+            <Text style={styles.lastReadingText}>Last: {lastReading}</Text>
+          </View>
+        )}
+        <View style={styles.controlsContainer}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => setFpsShown(t => !t)}
+            activeOpacity={0.8}
+          >
+            <WatchIcon size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
+            onPress={takePicture}
+            disabled={isProcessing}
+            activeOpacity={0.8}
+          >
+            <View style={styles.captureButtonInner}>
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <CameraIcon size={32} color="#ffffff" />
+              )}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => setTorch(t => !t)}
+            activeOpacity={0.8}
+          >
+            <Zap size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
       {/* Модальное окно для ручной корректировки */}
       <Modal
         visible={editModalVisible}
@@ -296,26 +295,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+    alignItems: 'center', // Центрируем всё по горизонтали
+    justifyContent: 'flex-start',
   },
   cameraContainer: {
-    height: '100%',
+    width: CAMERA_SIZE,
+    height: CAMERA_SIZE,
+    alignSelf: 'center',
+    position: 'relative',
+    marginTop: 0,
+    marginBottom: 24, // Добавим небольшой отступ снизу
   },
   camera: {
     width: CAMERA_SIZE,
     height: CAMERA_SIZE,
     position: 'absolute',
     flex: 1,
+    top: 0,
+    left: 0,
   },
   canvasOverlay: {
     width: CAMERA_SIZE,
     height: CAMERA_SIZE,
     position: 'absolute',
     flex: 1,
+    top: 0,
+    left: 0,
+    zIndex: 2,
+    pointerEvents: 'none',
   },
   topOverlay: {
-    paddingTop: 60,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CAMERA_SIZE,
+    paddingTop: 32,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    zIndex: 3,
   },
   headerText: {
     fontFamily: 'Inter-Bold',
@@ -332,13 +349,19 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   cameraOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CAMERA_SIZE,
+    height: CAMERA_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 3,
+    pointerEvents: 'none',
   },
   frameGuide: {
-    width: 280,
-    height: 200,
+    width: CAMERA_SIZE * 0.8,
+    height: CAMERA_SIZE * 0.8,
     position: 'relative',
   },
   corner: {
@@ -373,8 +396,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
   },
   bottomOverlay: {
-    paddingBottom: 100,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: CAMERA_SIZE,
+    paddingBottom: 32,
     paddingHorizontal: 20,
+    zIndex: 3,
   },
   lastReadingContainer: {
     flexDirection: 'row',
@@ -398,6 +426,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 40,
+    width: '100%',
+    alignSelf: 'center',
+    marginTop: 40,
+    marginBottom: 50,
   },
   controlButton: {
     width: 56,
@@ -525,11 +557,31 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
-    color: '#ааа',
+    color: '#aaa',
   },
   modalButtonTextSave: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
     color: '#ffffff',
+  },
+  infoBlock: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    minHeight: 220,
+    overflow: 'hidden',
+  },
+  panelDescription: {
+    color: '#ffd700',
+    fontSize: 13,
+    fontFamily: 'Inter-Medium',
+    marginTop: 2,
+    marginBottom: 2,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
