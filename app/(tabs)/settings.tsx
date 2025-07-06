@@ -154,13 +154,6 @@ export default function SettingsTab() {
               color="#7c3aed"
             />
             <SettingsItem
-              icon={Star}
-              title="Оценить приложение"
-              subtitle="Помогите нам улучшить приложение, оценив его"
-              onPress={() => Alert.alert('Оценить приложение', 'Это откроет страницу рейтинга в магазине приложения')}
-              color="#f59e0b"
-            />
-            <SettingsItem
               icon={Info}
               title="О Meter Reader"
               subtitle="Версия приложения и информация"
