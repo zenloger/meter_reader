@@ -29,7 +29,8 @@ export const initDB = async () => {
 export const getStoredReadings = async (): Promise<MeterReading[]> => {
   await ensureDBInitialized();
   const rawResult: unknown = await db.getAllAsync('SELECT * FROM readings ORDER BY timestamp DESC');
-  const result = rawResult as any[];
+  const result = (rawResult as any[]).map(v => ({ ...v, confidence: undefined }));
+  console.log(result);
   return result ? (result as MeterReading[]) : [];
 };
 

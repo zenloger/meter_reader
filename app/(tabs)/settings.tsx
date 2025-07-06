@@ -53,9 +53,9 @@ export default function SettingsTab() {
         fileUri = FileSystem.documentDirectory + 'meter_readings.json';
         await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
       } else {
-        const csvHeader = 'id,value,unit,confidence,imageUri,timestamp,type';
+        const csvHeader = 'id,value,unit,imageUri,timestamp,type';
         const csvRows = readings.map(r =>
-          [r.id, r.value, r.unit, r.confidence, r.imageUri, r.timestamp, r.type]
+          [r.id, r.value, r.unit, r.imageUri, r.timestamp, r.type]
             .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
         );
         const csv = [csvHeader, ...csvRows].join('\n');

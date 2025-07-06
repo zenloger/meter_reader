@@ -193,7 +193,7 @@ export default function CameraTab() {
       // Показываем сообщение об успехе
       Alert.alert(
         'Чтение записано!',
-        `Обнаруженное значение: ${reading.value} ${reading.unit}\nУверенность: ${(reading.confidence * 100).toFixed(1)}%`,
+        `Обнаруженное значение: ${reading.value} ${reading.unit}`,
         [
           { text: 'Сделать еще одно', style: 'default' },
           { text: 'Просмотр истории', onPress: () => router.push('/(tabs)/history') },

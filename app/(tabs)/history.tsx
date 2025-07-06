@@ -134,12 +134,6 @@ export default function HistoryTab() {
                     {formatDate(reading.timestamp)} в {formatTime(reading.timestamp)}
                   </Text>
                 </View>
-                <View style={styles.detailRow}>
-                  <TrendingUp size={16} color="#6b7280" />
-                  <Text style={styles.detailText}>
-                    Уверенность: {(reading.confidence * 100).toFixed(1)}%
-                  </Text>
-                </View>
               </View>
 
               {reading.imageUri && (
