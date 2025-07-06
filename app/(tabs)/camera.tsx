@@ -1,16 +1,16 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle, Image } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon, Sparkles } from 'lucide-react-native';
+import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon, Sparkles, Save, X, Edit, RotateCcw } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import useYolo from '@/hooks/useYolo';
-import Canvas, { Image } from 'react-native-canvas';
+import Canvas from 'react-native-canvas';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { ISharedValue } from 'react-native-worklets-core';
+import { ISharedValue, useSharedValue } from 'react-native-worklets-core';
 
 function MeterValue(props: { meterValue: ISharedValue<string> }) {
   const [_, forceUpdate] = React.useReducer(x => x + 1, 0);
@@ -38,9 +38,11 @@ function MeterValue(props: { meterValue: ISharedValue<string> }) {
 }
 
 export default function CameraTab() {
-  const { frameProcessor, boxes, meterValue } = useYolo();
-  // const boxes = React.useState([]);
+  // const { frameProcessor, boxes, meterValue } = useYolo();
+  const boxes = React.useState([]);
+  const meterValue = useSharedValue('123');
   const canvasRef = React.useRef<Canvas>(null);
+  const photoCanvasRef = React.useRef<Canvas>(null);
   const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
   const device = useCameraDevice('back');
   const deviceFormat = useCameraFormat(device, [{
@@ -55,13 +57,20 @@ export default function CameraTab() {
   const cameraRef = useRef<Camera>(null);
   const router = useRouter();
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editValue, setEditValue] = useState('');
+  const [editTempValue, setEditTempValue] = useState('');
   const [editUnit, setEditUnit] = useState('м³');
   const [editPhoto, setEditPhoto] = useState<any>(null);
   const [editConfidence, setEditConfidence] = useState(0.9);
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
   const [torch, setTorch] = useState(false);
   const [fpsShown, setFpsShown] = useState(false);
+  const [photo, setPhoto] = useState<PhotoFile|null>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [candidates, setCandidates] = useState([
+    { label: 'YOLO', value: '1234.56' },
+    { label: 'OCR', value: '1235.00' },
+    { label: 'MOCK', value: '9999.99' },
+  ]);
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -142,6 +151,8 @@ export default function CameraTab() {
     
     try {
       const photo: PhotoFile = await cameraRef.current.takeSnapshot();
+      setPhoto(photo);
+
 
       // if (photo) {
       //   // Вызываем handlePhoto для анализа изображения
@@ -166,7 +177,7 @@ export default function CameraTab() {
     if (!editPhoto) return;
     const reading = {
       id: Date.now().toString(),
-      value: Number(editValue),
+      value: Number(inputValue),
       unit: editUnit,
       confidence: editConfidence,
       imageUri: editPhoto.path,
@@ -177,6 +188,7 @@ export default function CameraTab() {
     setLastReading(`${reading.value} ${reading.unit}`);
     setEditModalVisible(false);
     setEditPhoto(null);
+    setInputValue('');
     // Показываем сообщение об успехе
     Alert.alert(
       'Чтение записано!',
@@ -188,6 +200,8 @@ export default function CameraTab() {
     );
   };
 
+  console.log(photo);
+
   const handleCancelEdit = () => {
     setEditModalVisible(false);
     setEditPhoto(null);
@@ -195,7 +209,15 @@ export default function CameraTab() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.cameraContainer}>
+      <View style={[styles.cameraContainer, {
+        display: photo ? 'flex' : 'none'
+      }]}>
+        <Canvas style={styles.canvasOverlay} ref={photoCanvasRef} />
+        {photo && <Image style={styles.camera} src={`file:///${photo?.path}`} />}
+      </View>
+      <View style={[styles.cameraContainer, {
+        display: photo ? 'none' : 'flex'
+      }]}>
         <Canvas style={styles.canvasOverlay} ref={canvasRef} />
         <Camera
           key={frameId}
@@ -208,7 +230,8 @@ export default function CameraTab() {
           ref={cameraRef}
           enableFpsGraph={fpsShown}
           photo={true}
-          frameProcessor={frameProcessor}
+          preview={photo == null}
+          // frameProcessor={frameProcessor}
         />
         <View style={styles.cameraOverlay}>
           <View style={styles.frameGuide}>
@@ -221,7 +244,9 @@ export default function CameraTab() {
           </View>
         </View>
       </View>
-      <View style={styles.meterReadingsBlock}>
+      <View style={[styles.meterReadingsBlock, {
+        display: photo ? 'none' : 'flex'
+      }]}>
         <View style={styles.meterReadingRow}>
           <MeterValue meterValue={meterValue} />
         </View>
@@ -230,7 +255,9 @@ export default function CameraTab() {
         colors={["#232526", "#414345"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.infoBlock}
+        style={[styles.infoBlock, {
+          display: photo ? 'none' : 'flex'
+        }]}
       >
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
           <Sparkles size={32} color="#ffd700" style={{ marginBottom: 4 }} />
@@ -275,38 +302,102 @@ export default function CameraTab() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
-      {/* Модальное окно для ручной корректировки */}
+
+      <LinearGradient
+        colors={["#232526", "#414345"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.infoBlock, {
+          display: photo ? 'flex' : 'none'
+        }]}
+      >
+        <Text style={styles.headerText}>Ручной ввод показаний</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            keyboardType="numeric"
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder="Введите показание"
+            placeholderTextColor="#fff"
+            cursorColor={'#fff'}
+            editable={false}
+          />
+          <TouchableOpacity onPress={() => { setEditTempValue(inputValue); setEditModalVisible(true); }} style={styles.editIconButton}>
+            <Edit size={22} color="#ffd700" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.candidatesRow}>
+          {candidates.map((c, idx) => (
+            <TouchableOpacity
+              key={c.label}
+              style={styles.candidateButton}
+              onPress={() => setInputValue(c.value)}
+            >
+              <Text style={styles.candidateLabel}>{c.label}</Text>
+              <Text style={styles.candidateValue}>{c.value}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.saveButtonsRow}>
+          <TouchableOpacity style={[styles.saveButton, styles.cancelButton]} onPress={() => { setPhoto(null); setInputValue(''); }}>
+            <X size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.saveButtonText}>Отмена</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveButton, { opacity: inputValue.trim() ? 1 : 0.5 }]}
+            onPress={() => setPhoto(null)}
+            disabled={!inputValue.trim()}
+          >
+            <Save size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.saveButtonText}>Сохранить</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Модальное окно для изменения значения */}
       <Modal
         visible={editModalVisible}
         transparent
-        animationType="slide"
-        onRequestClose={handleCancelEdit}
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Проверьте и скорректируйте показание</Text>
+            {/* Иконка редактирования */}
+            <View style={{ marginBottom: 8 }}>
+              <Edit size={36} color="#ffd700" />
+            </View>
+            <Text style={styles.modalTitle}>Изменить показание</Text>
             <TextInput
               style={styles.input}
               keyboardType="numeric"
-              value={editValue}
-              onChangeText={setEditValue}
-              placeholder="Показание"
+              value={editTempValue}
+              onChangeText={setEditTempValue}
+              placeholder="Введите новое значение"
+              placeholderTextColor="#aaa"
+              autoFocus
             />
-            <Text style={styles.unitText}>{editUnit}</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={handleCancelEdit}>
-                <Text style={styles.modalButtonText}>Отмена</Text>
+            <View style={{ flexDirection: 'row', marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.modalSaveButton, styles.modalResetButton, { flex: 1, marginRight: 8 }]}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <RotateCcw size={22} color="#232526" style={{ marginRight: 8 }} />
+                <Text style={styles.modalSaveButtonTextReset}>Отмена</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonSave} onPress={handleSaveReading}>
-                <Text style={styles.modalButtonTextSave}>Сохранить</Text>
+              <TouchableOpacity
+                style={[styles.modalSaveButton, styles.modalOkButton, { flex: 1, marginLeft: 8, opacity: editTempValue.trim() ? 1 : 0.5 }]}
+                onPress={() => { if (editTempValue.trim()) { setInputValue(editTempValue); setEditModalVisible(false); } }}
+                disabled={!editTempValue.trim()}
+              >
+                <Check size={22} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.modalSaveButtonText}>ОК</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-      <View style={{position: 'absolute', top: 0, left: 0, width: 100, height: 100}}>
-        <Canvas ref={canvasRef} />
-      </View>
     </View>
   );
 }
@@ -361,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 20,
   },
   subHeaderText: {
     fontFamily: 'Inter-Regular',
@@ -519,34 +610,41 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: 300,
+    backgroundColor: '#232526',
+    borderRadius: 24,
+    padding: 32,
+    width: 320,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
   modalTitle: {
     fontFamily: 'Inter-Bold',
-    fontSize: 18,
-    marginBottom: 16,
-    color: '#111827',
+    fontSize: 22,
+    marginBottom: 18,
+    color: '#ffd700',
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   input: {
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 18,
+    borderWidth: 1.5,
+    borderColor: '#ffd700',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 20,
     fontFamily: 'Inter-Regular',
-    marginBottom: 8,
+    marginBottom: 18,
     textAlign: 'center',
+    color: 'white',
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   unitText: {
     fontFamily: 'Inter-Regular',
@@ -647,5 +745,93 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     marginTop: 1,
+  },
+  candidatesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  candidateButton: {
+    backgroundColor: '#333',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  candidateLabel: {
+    color: '#ffd700',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: 2,
+  },
+  candidateValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignSelf: 'center',
+    marginTop: 0,
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 0.2,
+  },
+  modalSaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    alignSelf: 'center',
+    marginTop: 0,
+    justifyContent: 'center',
+  },
+  modalOkButton: {
+    backgroundColor: '#22c55e', // зелёная
+  },
+  modalResetButton: {
+    backgroundColor: '#e5e7eb', // светло-серая
+  },
+  modalSaveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 0.2,
+  },
+  modalSaveButtonTextReset: {
+    color: '#232526',
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 0.2,
+  },
+  saveButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 100,
+  },
+  cancelButton: {
+    backgroundColor: '#ef4444',
+    marginRight: 16,
+  },
+  editIconButton: {
+    marginLeft: 8,
+    padding: 4,
   },
 });

@@ -89,7 +89,6 @@ export default function useYolo() {
             let c = Date.now();
             const output = (model.runSync([data])[0]) as Float32Array;
             let d = Date.now();
-            console.log((d - c) / 1000);
     
             // 14 x OUTPUT_SIZE
             const OUTPUT_SIZE = 3549;
@@ -150,23 +149,19 @@ export default function useYolo() {
             if (nmsBoxes.length >= 2) {
               const ransacResults = runRANSAC(nmsBoxes);
               finalBoxes = ransacResults.inliers;
-              console.log(`RANSAC: ${ransacResults.inliers.length} inliers, line: ${ransacResults.line}`);
             } else {
               finalBoxes = nmsBoxes;
             }
 
-            console.log(finalBoxes);
             finalBoxes = ([] as Box[]).sort.call(finalBoxes, ((a, b) => a.x - b.x));
             let result = '';
             for (let i of finalBoxes) {
               result += i.class.toString();
             }
-            
-            
+
             meterValue.value = result;
             boxes.value = finalBoxes;
             state.value = 0;
-            console.log(boxes.value.length);
         }
         inference();
         state.value = 0;
