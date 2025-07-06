@@ -76,3 +76,19 @@
 2. Наведите камеру на дисплей счетчика, чтобы он оказался в центре.
 3. Нажмите кнопку захвата — приложение автоматически распознает и предложит сохранить показание.
 4. Просматривайте историю на вкладке "История" или экспортируйте данные через "Настройки".
+
+## Скриншоты
+
+|              |   |      |
+:-------------------------:|:-------------------------:|:------:|
+![image](https://github.com/user-attachments/assets/188d9067-5206-4779-8407-78d261bc15e7) |  ![image](https://github.com/user-attachments/assets/c18133bd-d1d7-4a4d-bdb6-1c4e839d2ba4) | ![image](https://github.com/user-attachments/assets/64175110-08cf-4b01-9172-03e89a1c4157)
+![image](https://github.com/user-attachments/assets/3980ec39-7b79-4d47-81ce-df04a2e1eaa3)  |  ![image](https://github.com/user-attachments/assets/f8972afb-c223-4151-b2cc-6ccaf1237a7d) | ![image](https://github.com/user-attachments/assets/d2703cf9-ccd4-4d84-b672-a7d9a884e03e)
+![image](https://github.com/user-attachments/assets/34aa14bb-64b8-40a7-a798-15991646ef37) | ![image](https://github.com/user-attachments/assets/8f8aa787-33dc-4a82-a615-c7c660675d7b) | ![image](https://github.com/user-attachments/assets/b3b07c0c-ede6-416b-97dd-138c7d4893bf)
+
+
+
+
+
+
+
+
