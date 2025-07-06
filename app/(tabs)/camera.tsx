@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle, Image } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat, useFrameProcessor } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon, Sparkles, Save, X, Edit, RotateCcw } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,8 +9,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import useYolo from '@/hooks/useYolo';
 import Canvas from 'react-native-canvas';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
+import { PNG } from 'pngjs/browser';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { ISharedValue, useSharedValue } from 'react-native-worklets-core';
+import { Buffer } from 'buffer';
+
+const CAMERA_SIZE = Dimensions.get('screen').width;
 
 function MeterValue(props: { meterValue: ISharedValue<string> }) {
   const [_, forceUpdate] = React.useReducer(x => x + 1, 0);
@@ -38,9 +43,12 @@ function MeterValue(props: { meterValue: ISharedValue<string> }) {
 }
 
 export default function CameraTab() {
-  const { frameProcessor, boxes, meterValue } = useYolo();
+  const { modelWorklet, frameProcessor, boxes, meterValue, inference, ransac, nms } = useYolo();
   // const boxes = React.useState([]);
   // const meterValue = useSharedValue('123');
+  // const inference = () => {};
+  // const ransac = () => {};
+  // const nms = () => {};
   const canvasRef = React.useRef<Canvas>(null);
   const photoCanvasRef = React.useRef<Canvas>(null);
   const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
@@ -64,13 +72,26 @@ export default function CameraTab() {
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
   const [torch, setTorch] = useState(false);
   const [fpsShown, setFpsShown] = useState(false);
-  const [photo, setPhoto] = useState<PhotoFile|null>(null);
+  const [photo, setPhoto] = useState<string|null>(null);
   const [inputValue, setInputValue] = useState('');
   const [candidates, setCandidates] = useState([
     { label: 'YOLO', value: '1234.56' },
     { label: 'OCR', value: '1235.00' },
     { label: 'MOCK', value: '9999.99' },
   ]);
+
+  const isProcessingShared = useSharedValue(false);
+  isProcessingShared.value = isProcessing;
+
+  const frameProcessorWrapper = useFrameProcessor((frame) => {
+    'worklet'
+    if (isProcessingShared.value) {
+      console.log("NOT HANDLE FRAME");
+      return;
+    }
+    console.log("HANDLE FRAME");
+    return frameProcessor(frame);
+  }, [modelWorklet]);
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -148,32 +169,106 @@ export default function CameraTab() {
     if (!cameraRef.current || isProcessing) return;
     let newCandidates: typeof candidates = []
     if (meterValue.value.trim()) {
-      newCandidates.push({ 'label': 'YOLA', 'value': meterValue.value });
+      newCandidates.push({ 'label': 'YOLA RealTime', 'value': meterValue.value });
     }
 
-    setIsProcessing(true);
-    
+    const wait = (ms: number) => new Promise(resolve => {
+      setTimeout(resolve, ms);
+    });
+
     try {
+      setIsProcessing(true);
+
+      // const photo: PhotoFile = await cameraRef.current.takePhoto({
+      //   flash: 'auto',
+      // });
       const photo: PhotoFile = await cameraRef.current.takeSnapshot();
+      setTorch(false);
+
+      const canvas = photoCanvasRef.current!;
+      canvas.width = CAMERA_SIZE;
+      canvas.height = CAMERA_SIZE;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, CAMERA_SIZE, CAMERA_SIZE);
+      const delta = 0;
+
+      const photoPath = `file:///${photo?.path}`;
+
+      // 1. Сохраняем фото в PNG с resize 416x416
+      // Сначала определяем crop по центру, квадрат минимальной из сторон
+      const photoInfo = await ImageManipulator.manipulateAsync(
+        photoPath,
+        [],
+        { base64: false }
+      );
+      const origWidth = photoInfo.width;
+      const origHeight = photoInfo.height;
+      const minSide = Math.min(origWidth, origHeight);
+      const cropOriginX = Math.floor((origWidth - minSide) / 2);
+      const cropOriginY = Math.floor((origHeight - minSide) / 2);
+
+      const manipResult = await ImageManipulator.manipulateAsync(
+        photoPath,
+        [
+          { crop: { originX: cropOriginX, originY: cropOriginY, width: minSide, height: minSide } },
+          { resize: { width: 416, height: 416 } }
+        ],
+        { format: ImageManipulator.SaveFormat.PNG }
+      );
+
       setCandidates(newCandidates);
-      setPhoto(photo);
+      setPhoto(manipResult.uri);
 
+      // 2. Читаем PNG-файл в буфер
+      const pngUri = manipResult.uri;
+      const pngBase64 = await FileSystem.readAsStringAsync(pngUri, { encoding: FileSystem.EncodingType.Base64 });
 
-      // if (photo) {
-      //   // Вызываем handlePhoto для анализа изображения
-      //   const analysis = {} as any;
+      // Преобразуем base64 в Buffer, чтобы pngjs мог корректно декодировать
+      // const pngBuffer = Uint8Array.from(atob(pngBase64), c => c.charCodeAt(0));
+      const pngBuffer = new Buffer(pngBase64, 'base64');
 
-      //   // Открываем модальное окно для редактирования
-      //   setEditValue(String(analysis.value || 0));
-      //   setEditUnit(analysis.unit || 'м³');
-      //   setEditPhoto(photo);
-      //   setEditConfidence(analysis.confidence || 0.9);
-      //   setEditModalVisible(true);
-      // }
+      // 3. Декодируем PNG через pngjs
+      const png = PNG.sync.read(pngBuffer);
+      const rgbData = [];
+
+      for (let i = 0; i < png.data.length; i++) {
+        if (i % 4 != 3) {
+          rgbData.push(png.data[i] / 255.);
+        }
+      }
+
+      const floatArray = new Float32Array(rgbData.length);
+      for (let i = 0; i < png.height; i++) {
+        for (let j = 0; j < png.width; j++) {
+          for (let k = 0; k < 3; k++) {
+            floatArray[(j * png.height + i) * 3 + k] = rgbData[(i * png.width + (png.width - 1 - j)) * 3 + k];
+          }
+        }
+      }
+
+      console.log('OK');
+      const bboxes = ransac(nms(inference(floatArray)));
+
+      const finalBoxes = ([] as typeof bboxes).sort.call(bboxes, ((a, b) => a.x - b.x));
+      let result = '';
+      for (let i of finalBoxes) {
+        result += i.class.toString();
+      }
+      
+      newCandidates = [...newCandidates, { label: 'YOLO', value: result }];
+      setCandidates(newCandidates);
+
+      for (let box of bboxes) {
+        ctx.rect((box.x - box.w / 2) * CAMERA_SIZE, (box.y - box.h / 2) * CAMERA_SIZE + delta / 2, box.w * CAMERA_SIZE, box.h * CAMERA_SIZE);
+      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#0f0";
+      ctx.stroke();
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('Ошибка', 'Не удалось обработать изображение. Пожалуйста, попробуйте еще раз.');
     } finally {
+      await wait(500);
       setIsProcessing(false);
     }
   };
@@ -185,7 +280,7 @@ export default function CameraTab() {
         value: Number(inputValue),
         unit: editUnit,
         confidence: editConfidence,
-        imageUri: `file:///${photo?.path}`,
+        imageUri: `${photo}`,
         timestamp: new Date().toISOString(),
         type: 'gas' as const,
       };
@@ -216,26 +311,29 @@ export default function CameraTab() {
         display: photo ? 'flex' : 'none'
       }]}>
         <Canvas style={styles.canvasOverlay} ref={photoCanvasRef} />
-        {photo && <Image style={styles.camera} src={`file:///${photo?.path}`} />}
+        {photo && <Image style={styles.camera} src={`${photo}`} />}
       </View>
       <View style={[styles.cameraContainer, {
         display: photo ? 'none' : 'flex'
       }]}>
         <Canvas style={styles.canvasOverlay} ref={canvasRef} />
-        <Camera
-          key={frameId}
-          torch={torch ? 'on' : 'off'}
-          format={deviceFormat}
-          onLayout={event => setLayout(event.nativeEvent.layout)}
-          style={styles.camera}
-          device={device}
-          isActive={true}
-          ref={cameraRef}
-          enableFpsGraph={fpsShown}
-          photo={true}
-          preview={photo == null}
-          frameProcessor={frameProcessor}
-        />
+        { !photo &&
+          <Camera
+            key={frameId}
+            torch={torch ? 'on' : 'off'}
+            format={deviceFormat}
+            onLayout={event => setLayout(event.nativeEvent.layout)}
+            style={styles.camera}
+            fps={10}
+            device={device}
+            isActive={true}
+            ref={cameraRef}
+            enableFpsGraph={fpsShown}
+            photo={true}
+            preview={true}
+            frameProcessor={frameProcessorWrapper}
+          />
+        }
         <View style={styles.cameraOverlay}>
           <View style={styles.frameGuide}>
             <View style={[styles.corner, styles.topLeft, {
@@ -404,8 +502,6 @@ export default function CameraTab() {
     </View>
   );
 }
-
-const CAMERA_SIZE = Dimensions.get('screen').width;
 
 const styles = StyleSheet.create({
   container: {

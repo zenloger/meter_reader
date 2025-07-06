@@ -28,7 +28,6 @@ export default function HistoryTab() {
     // Данные всегда берутся из SQLite через getStoredReadings
     try {
       const storedReadings = await getStoredReadings();
-      console.log(storedReadings);
       setReadings(storedReadings.filter(r => r.type === 'gas'));
     } catch (error) {
       console.error('Error loading readings:', error);

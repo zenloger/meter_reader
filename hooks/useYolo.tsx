@@ -57,16 +57,142 @@ interface Box {
     confidence: number;
 }
 
+interface InferenceOutput {
+
+}
+
 export default function useYolo() {
-    const { model } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
+    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
+    const { model: model } = useTensorflowModel(require('@/assets/models/best_float32.tflite'));
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
     const meterValue = useSharedValue('');
     const boxes = useSharedValue<Box[]>([]);
 
-    const frameProcessor = useFrameProcessor((frame) => {
+    const inference = (floatArray: Float32Array, confidenceLimit=0.04): Box[] => {
+      let result: Box[] = [];
+      if (!model) return [];
+      const output = (model.runSync([floatArray])[0]) as Float32Array;
+
+      // 14 x OUTPUT_SIZE
+      const OUTPUT_SIZE = 3549;
+      const CLASS_COUNT = 10;
+      let confidence = new Float32Array(CLASS_COUNT);
+      for (let i = 0; i < OUTPUT_SIZE; i++) {
+          // data[0][i]
+          let y = output[0 * OUTPUT_SIZE + i];
+          let x = 1 - output[1 * OUTPUT_SIZE + i];
+          let h = output[2 * OUTPUT_SIZE + i];
+          let w = output[3 * OUTPUT_SIZE + i];
+          
+          // let x = output[i * 14 + 0];
+          // let y = output[i * 14 + 1];
+          // let w = output[i * 14 + 2];
+          // let h = output[i * 14 + 3];
+
+          let maxV = 0, maxI = 0;
+          for (let j = 0; j < CLASS_COUNT; j++) {
+              confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
+              // confidence[j] = output[i * 14 + (j + 4)];
+              if (confidence[j] > maxV) {
+                  maxV = confidence[j];
+                  maxI = j;
+              }
+          }
+
+          if (maxV >= confidenceLimit) {
+            result.push({
+                x, y, w, h, class: maxI, confidence: maxV
+            });
+          }
+      }
+
+      // Sort boxes by confidence (highest first)
+      return result;
+    }
+
+    
+    const inferenceWorklet = (floatArray: Float32Array, confidenceLimit=0.04): Box[] => {
+      'worklet'
+      let result: Box[] = [];
+      if (!modelWorklet) return [];
+      const output = (modelWorklet.runSync([floatArray])[0]) as Float32Array;
+
+      // 14 x OUTPUT_SIZE
+      const OUTPUT_SIZE = 3549;
+      const CLASS_COUNT = 10;
+      let confidence = new Float32Array(CLASS_COUNT);
+      for (let i = 0; i < OUTPUT_SIZE; i++) {
+          // data[0][i]
+          let y = output[0 * OUTPUT_SIZE + i];
+          let x = 1 - output[1 * OUTPUT_SIZE + i];
+          let h = output[2 * OUTPUT_SIZE + i];
+          let w = output[3 * OUTPUT_SIZE + i];
+          
+          // let x = output[i * 14 + 0];
+          // let y = output[i * 14 + 1];
+          // let w = output[i * 14 + 2];
+          // let h = output[i * 14 + 3];
+
+          let maxV = 0, maxI = 0;
+          for (let j = 0; j < CLASS_COUNT; j++) {
+              confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
+              // confidence[j] = output[i * 14 + (j + 4)];
+              if (confidence[j] > maxV) {
+                  maxV = confidence[j];
+                  maxI = j;
+              }
+          }
+
+          if (maxV >= confidenceLimit) {
+            result.push({
+                x, y, w, h, class: maxI, confidence: maxV
+            });
+          }
+      }
+
+      // Sort boxes by confidence (highest first)
+      return result;
+    }
+
+    const nms = (bboxes: Box[]): Box[] => {
+      'worklet'
+      bboxes.sort((a, b) => b.confidence - a.confidence);
+      // Non-Maximum Suppression (NMS)
+      const nmsThreshold = 0.5; // IoU threshold
+      const nmsBoxes: Box[] = [];
+      
+      while (bboxes.length > 0) {
+        const currentBox = bboxes[0];
+        nmsBoxes.push(currentBox);
+        bboxes.shift();
+        
+        for (let i = bboxes.length - 1; i >= 0; i--) {
+          const iou = calculateIoU(currentBox, bboxes[i]);
+          if (iou > nmsThreshold) {
+            bboxes.splice(i, 1);
+          }
+        }
+      }
+
+      return nmsBoxes;
+    }
+
+    const ransac = (bboxes: Box[]): Box[] => {
+      'worklet'
+      let result: Box[] = [];
+      if (bboxes.length >= 2) {
+        const ransacResults = runRANSAC(bboxes);
+        return ransacResults.inliers;
+      } else {
+        return bboxes;
+      }
+    }
+
+    const frameProcessor = async (frame: Frame) => {
         'worklet'
+        console.log(!!model);
         if (!model) return;
 
         if (state.value > 0) {
@@ -83,94 +209,30 @@ export default function useYolo() {
             dataType: 'float32'
         });
 
-        let newBoxes: Box[] = [];
+        const inferenceBoxes = inferenceWorklet(data, 0.04);
+        const nmsBoxes = nms(inferenceBoxes);
 
-        let inference = () => {
-            let c = Date.now();
-            const output = (model.runSync([data])[0]) as Float32Array;
-            let d = Date.now();
-    
-            // 14 x OUTPUT_SIZE
-            const OUTPUT_SIZE = 3549;
-            const CLASS_COUNT = 10;
-            let confidence = new Float32Array(CLASS_COUNT);
-            for (let i = 0; i < OUTPUT_SIZE; i++) {
-                // data[0][i]
-                let y = output[0 * OUTPUT_SIZE + i];
-                let x = 1 - output[1 * OUTPUT_SIZE + i];
-                let h = output[2 * OUTPUT_SIZE + i];
-                let w = output[3 * OUTPUT_SIZE + i];
-                
-                // let x = output[i * 14 + 0];
-                // let y = output[i * 14 + 1];
-                // let w = output[i * 14 + 2];
-                // let h = output[i * 14 + 3];
-    
-                let maxV = 0, maxI = 0;
-                for (let j = 0; j < CLASS_COUNT; j++) {
-                    confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
-                    // confidence[j] = output[i * 14 + (j + 4)];
-                    if (confidence[j] > maxV) {
-                        maxV = confidence[j];
-                        maxI = j;
-                    }
-                }
-    
-                newBoxes.push({
-                    x, y, w, h, class: maxI, confidence: maxV
-                });
-            }
+        let finalBoxes: Box[] = ransac(nmsBoxes);
 
-            newBoxes = newBoxes.filter(v => v.confidence >= 0.04);
-
-            // Sort boxes by confidence (highest first)
-            newBoxes.sort((a, b) => b.confidence - a.confidence);
-
-            // Non-Maximum Suppression (NMS)
-            const nmsThreshold = 0.5; // IoU threshold
-            const nmsBoxes: Box[] = [];
-            
-            while (newBoxes.length > 0) {
-              const currentBox = newBoxes[0];
-              nmsBoxes.push(currentBox);
-              newBoxes.shift();
-              
-              for (let i = newBoxes.length - 1; i >= 0; i--) {
-                const iou = calculateIoU(currentBox, newBoxes[i]);
-                if (iou > nmsThreshold) {
-                  newBoxes.splice(i, 1);
-                }
-              }
-            }
-
-            let finalBoxes: Box[] = [];
-
-            // RANSAC for line fitting
-            if (nmsBoxes.length >= 2) {
-              const ransacResults = runRANSAC(nmsBoxes);
-              finalBoxes = ransacResults.inliers;
-            } else {
-              finalBoxes = nmsBoxes;
-            }
-
-            finalBoxes = ([] as Box[]).sort.call(finalBoxes, ((a, b) => a.x - b.x));
-            let result = '';
-            for (let i of finalBoxes) {
-              result += i.class.toString();
-            }
-
-            meterValue.value = result;
-            boxes.value = finalBoxes;
-            state.value = 0;
+        finalBoxes = ([] as Box[]).sort.call(finalBoxes, ((a, b) => a.x - b.x));
+        let result = '';
+        for (let i of finalBoxes) {
+          result += i.class.toString();
         }
-        inference();
+        meterValue.value = result;
+        boxes.value = finalBoxes;
         state.value = 0;
-    }, [model])
+    }
 
     return {
+        model,
+        modelWorklet,
         frameProcessor,
         boxes: boxes.value,
-        meterValue
+        meterValue,
+        nms,
+        ransac,
+        inference
     };
 }
 
