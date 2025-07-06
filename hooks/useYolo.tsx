@@ -82,7 +82,7 @@ export default function useYolo() {
       
     })
 
-    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'));
+    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
     const { model: model } = useTensorflowModel(require('@/assets/models/best_float32_640.tflite'));
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);

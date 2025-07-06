@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle, Image, ScrollView } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat, useFrameProcessor } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon, Sparkles, Save, X, Edit, RotateCcw } from 'lucide-react-native';
@@ -262,38 +262,74 @@ export default function CameraTab() {
       ctx.strokeStyle = "#0f0";
       ctx.stroke();
 
+      // Создаём маску PNG такого же размера, как исходное изображение, и заполняем её нулями
+      let pngMaskData = new Uint8Array(png.width * png.height * 4).fill(0);
+
+      // Копируем пиксели из исходного PNG в маску только для областей, попадающих в bounding boxes
+      for (let box of bboxes) {
+        // Переводим координаты бокса в пиксели
+        const hPadding = 10;
+        const wPadding = 30;
+        const x0 = Math.max(0, Math.floor((box.x - box.w / 2) * png.width) - wPadding);
+        const y0 = Math.max(0, Math.floor((box.y - box.h / 2) * png.height) - hPadding);
+        const x1 = Math.min(png.width, Math.ceil((box.x + box.w / 2) * png.width) + wPadding);
+        const y1 = Math.min(png.height, Math.ceil((box.y + box.h / 2) * png.height) + hPadding);
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const idx = (y * png.width + x) * 4;
+            pngMaskData[idx] = png.data[idx];       // R
+            pngMaskData[idx + 1] = png.data[idx+1]; // G
+            pngMaskData[idx + 2] = png.data[idx+2]; // B
+            pngMaskData[idx + 3] = png.data[idx+3]; // A
+          }
+        }
+      }
+
+      // Создаём новый PNG-объект для маски
+      let pngMaskObj = new PNG({ width: png.width, height: png.height });
+      for (let i = 0; i < pngMaskObj.data.length; i++) {
+        pngMaskObj.data[i] = pngMaskData[i];
+      }
+
+      // Сохраняем маску во временный файл и получаем URI
+      const maskBuffer = PNG.sync.write(pngMaskObj);
+      const maskBase64 = Buffer.from(maskBuffer).toString('base64');
+      const maskUri = FileSystem.cacheDirectory + `mask_${Date.now()}.png`;
+      await FileSystem.writeAsStringAsync(maskUri, maskBase64, { encoding: FileSystem.EncodingType.Base64 });
+    setPhoto(maskUri);
+      // Теперь maskUri содержит путь к PNG-маске
+
+      for (let box of bboxes) {
+        ctx.rect((box.x - box.w / 2) * CAMERA_SIZE, (box.y - box.h / 2) * CAMERA_SIZE + delta / 2, box.w * CAMERA_SIZE, box.h * CAMERA_SIZE);
+      }
+
       let resultOcr = '';
       // Вырезаем участок картинки, соответствующий боксу, и сохраняем его в отдельный PNG-файл
       // Используем expo-image-manipulation для обрезки и сохранения
       if (bboxes.length) {
-        const padding = 10;
-        const cropX = Math.max(0, (bboxes[0].x - bboxes[0].w) * png.width - padding);
-        const cropY = Math.max(0, (bboxes[0].y - bboxes[0].h) * png.height - padding);
-        const cropWidth = Math.min((bboxes[bboxes.length - 1].x - bboxes[0].x) * png.width + 5 * padding, png.width - cropX);
-        const cropHeight = Math.min(bboxes[bboxes.length - 1].h * png.height * 2 + 4 * padding, png.height - cropY);
-  
         try {
-          const cropped = await ImageManipulator.manipulateAsync(
-            pngUri,
-            [
-              {
-                crop: {
-                  originX: cropX,
-                  originY: cropY,
-                  width: cropWidth,
-                  height: cropHeight,
-                }
-              }
-            ],
-            { format: ImageManipulator.SaveFormat.PNG }
-          );
-          const detections = await ocrModel.forward(pngUri);
+          const detections = await ocrModel.forward(maskUri);
           // setPhoto(cropped.uri);
           console.log(detections);
+          detections.sort((a, b) => b.score - a.score);
+          if (detections.length) {
+            for (let ch of detections[0].text) {
+              if ('0' <= ch && ch <= '9') {
+                resultOcr += ch;
+              }
+            }
+            newCandidates = [...newCandidates, {
+              label: 'OCR (Mask)',
+              value: resultOcr
+            }];
+            setCandidates(newCandidates);
+          }
         } catch (e) {
           console.warn('Ошибка при сохранении участка картинки:', e);
         }
       }
+
+      setPhoto(pngUri);
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('Ошибка', 'Не удалось обработать изображение. Пожалуйста, попробуйте еще раз.');
@@ -458,16 +494,18 @@ export default function CameraTab() {
               Ничего не найдено, попробуйте сделать ещё фотографию
             </Text>
           ) : (
-            candidates.map((c, idx) => (
-              <TouchableOpacity
-                key={c.label}
-                style={styles.candidateButton}
-                onPress={() => setInputValue(c.value)}
-              >
-                <Text style={styles.candidateLabel}>{c.label}</Text>
-                <Text style={styles.candidateValue}>{c.value}</Text>
-              </TouchableOpacity>
-            ))
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', alignItems: 'center' }}>
+              {candidates.map((c, idx) => (
+                <TouchableOpacity
+                  key={c.label}
+                  style={styles.candidateButton}
+                  onPress={() => setInputValue(c.value)}
+                >
+                  <Text style={styles.candidateLabel}>{c.label}</Text>
+                  <Text style={styles.candidateValue}>{c.value}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           )}
         </View>
         {isProcessing ? (
