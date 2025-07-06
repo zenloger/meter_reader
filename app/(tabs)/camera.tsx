@@ -43,7 +43,7 @@ function MeterValue(props: { meterValue: ISharedValue<string> }) {
 }
 
 export default function CameraTab() {
-  const { ocrModel, modelWorklet, frameProcessor, boxes, meterValue, inference, ransac, nms } = useYolo();
+  const { ocrModel, modelWorklet, frameProcessor, boxes, meterValue, inference, inferenceIndicator, ransac, nms } = useYolo();
   // const boxes = React.useState([]);
   // const meterValue = useSharedValue('123');
   // const inference = () => {};
@@ -118,13 +118,15 @@ export default function CameraTab() {
       const width = canvasRef.current.width;
       const height = canvasRef.current.height;
       const delta = height - width;
-      let cc: Array<any> = [...boxes];
-      for (let box of cc) {
+      for (let box of boxes) {
+        ctx.strokeStyle = box.class < 10 ? '#0f0' : '#ff0';
+        if (box.class == 10) ctx.strokeStyle = '#00f';
+
+        ctx.stroke();
+        ctx.lineWidth = 2;
         ctx.rect((box.x - box.w / 2) * width, (box.y - box.h / 2) * width + delta / 2, box.w * width, box.h * width);
+        ctx.closePath();
       }
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#0f0";
-      ctx.stroke();
     }, 50);
 
     return () => {
@@ -262,11 +264,55 @@ export default function CameraTab() {
       ctx.strokeStyle = "#0f0";
       ctx.stroke();
 
+      // INDICATOR
+      const indicatorManipResult = await ImageManipulator.manipulateAsync(
+        photoPath,
+        [
+          { crop: { originX: cropOriginX, originY: cropOriginY, width: minSide, height: minSide } },
+          { resize: { width: 224, height: 224 } }
+        ],
+        { format: ImageManipulator.SaveFormat.PNG }
+      );
+
+      const indicatorPngUri = indicatorManipResult.uri;
+      const indicatorPngBase64 = await FileSystem.readAsStringAsync(indicatorPngUri, { encoding: FileSystem.EncodingType.Base64 });
+
+      const indicatorPngBuffer = new Buffer(indicatorPngBase64, 'base64');
+
+      const indicatorPng = PNG.sync.read(indicatorPngBuffer);
+      const indicatorRgbData = [];
+
+      for (let i = 0; i < indicatorPng.data.length; i++) {
+        if (i % 4 != 3) {
+          indicatorRgbData.push(indicatorPng.data[i] / 255.);
+        }
+      }
+
+      const indicatorFloatArray = new Float32Array(indicatorRgbData.length);
+      for (let i = 0; i < indicatorPng.height; i++) {
+        for (let j = 0; j < indicatorPng.width; j++) {
+          for (let k = 0; k < 3; k++) {
+            indicatorFloatArray[(j * indicatorPng.height + i) * 3 + k] = indicatorRgbData[(i * indicatorPng.width + (indicatorPng.width - 1 - j)) * 3 + k];
+          }
+        }
+      }
+
+      const indicatorBboxes = nms(inferenceIndicator(indicatorFloatArray, 0.5));
+      console.log(indicatorBboxes);
+
+      for (let box of indicatorBboxes) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#ff0';
+        ctx.strokeRect((box.x - box.w / 2) * CAMERA_SIZE, (box.y - box.h / 2) * CAMERA_SIZE + delta / 2, box.w * CAMERA_SIZE, box.h * CAMERA_SIZE);
+        ctx.closePath();
+      }
+
+
       // Создаём маску PNG такого же размера, как исходное изображение, и заполняем её нулями
       let pngMaskData = new Uint8Array(png.width * png.height * 4).fill(0);
 
       // Копируем пиксели из исходного PNG в маску только для областей, попадающих в bounding boxes
-      for (let box of bboxes) {
+      for (let box of indicatorBboxes) {
         // Переводим координаты бокса в пиксели
         const hPadding = 10;
         const wPadding = 30;
@@ -300,7 +346,10 @@ export default function CameraTab() {
       // Теперь maskUri содержит путь к PNG-маске
 
       for (let box of bboxes) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#0f0';
         ctx.rect((box.x - box.w / 2) * CAMERA_SIZE, (box.y - box.h / 2) * CAMERA_SIZE + delta / 2, box.w * CAMERA_SIZE, box.h * CAMERA_SIZE);
+        ctx.closePath();
       }
 
       let resultOcr = '';

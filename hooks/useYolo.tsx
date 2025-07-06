@@ -65,10 +65,6 @@ interface Box {
     confidence: number;
 }
 
-interface InferenceOutput {
-
-}
-
 export default function useYolo() {
     const ocrModel = useOCR({
       detectorSource: DETECTOR_CRAFT_800,
@@ -82,8 +78,9 @@ export default function useYolo() {
       
     })
 
-    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
-    const { model: model } = useTensorflowModel(require('@/assets/models/best_float32_640.tflite'));
+    const { model: modelIndicator } = useTensorflowModel(require('@/assets/models/indicator_float32_224.tflite'));
+    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/better_float32_416.tflite'), 'android-gpu');
+    const { model: model } = useTensorflowModel(require('@/assets/models/better_float32_640.tflite'), 'android-gpu');
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
@@ -132,7 +129,6 @@ export default function useYolo() {
       return result;
     }
 
-    
     const inferenceWorklet = (floatArray: Float32Array, confidenceLimit=0.04): Box[] => {
       'worklet'
       let result: Box[] = [];
@@ -144,35 +140,63 @@ export default function useYolo() {
       const CLASS_COUNT = 10;
       let confidence = new Float32Array(CLASS_COUNT);
       for (let i = 0; i < OUTPUT_SIZE; i++) {
-          // data[0][i]
-          let y = output[0 * OUTPUT_SIZE + i];
-          let x = 1 - output[1 * OUTPUT_SIZE + i];
-          let h = output[2 * OUTPUT_SIZE + i];
-          let w = output[3 * OUTPUT_SIZE + i];
-          
-          // let x = output[i * 14 + 0];
-          // let y = output[i * 14 + 1];
-          // let w = output[i * 14 + 2];
-          // let h = output[i * 14 + 3];
+        let y = output[0 * OUTPUT_SIZE + i];
+        let x = 1 - output[1 * OUTPUT_SIZE + i];
+        let h = output[2 * OUTPUT_SIZE + i];
+        let w = output[3 * OUTPUT_SIZE + i];
 
-          let maxV = 0, maxI = 0;
-          for (let j = 0; j < CLASS_COUNT; j++) {
-              confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
-              // confidence[j] = output[i * 14 + (j + 4)];
-              if (confidence[j] > maxV) {
-                  maxV = confidence[j];
-                  maxI = j;
-              }
-          }
+        let maxV = 0, maxI = 0;
+        for (let j = 0; j < CLASS_COUNT; j++) {
+            confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
+            if (confidence[j] > maxV) {
+                maxV = confidence[j];
+                maxI = j;
+            }
+        }
 
-          if (maxV >= confidenceLimit) {
-            result.push({
-                x, y, w, h, class: maxI, confidence: maxV
-            });
-          }
+        if (maxV >= confidenceLimit) {
+          result.push({
+              x, y, w, h, class: maxI, confidence: maxV
+          });
+        }
       }
 
       // Sort boxes by confidence (highest first)
+      return result;
+    }
+
+    const inferenceIndicator = (floatArray: Float32Array, confidenceLimit=0.04): Box[] => {
+      'worklet'
+      let result: Box[] = [];
+      if (!modelIndicator) return [];
+      const output = (modelIndicator.runSync([floatArray])[0]) as Float32Array;
+
+      // 14 x OUTPUT_SIZE
+      const OUTPUT_SIZE = 1029;
+      const CLASS_COUNT = 2;
+      let confidence = new Float32Array(CLASS_COUNT);
+      for (let i = 0; i < OUTPUT_SIZE; i++) {
+        let y = output[0 * OUTPUT_SIZE + i];
+        let x = 1 - output[1 * OUTPUT_SIZE + i];
+        let h = output[2 * OUTPUT_SIZE + i];
+        let w = output[3 * OUTPUT_SIZE + i];
+
+        let maxV = 0, maxI = 10;
+        for (let j = 0; j < CLASS_COUNT; j++) {
+            confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
+            if (confidence[j] > maxV) {
+                maxV = confidence[j];
+                maxI = 10 + j;
+            }
+        }
+
+        if (maxV >= confidenceLimit) {
+          result.push({
+              x, y, w, h, class: maxI, confidence: maxV
+          });
+        }
+      }
+
       return result;
     }
 
@@ -238,13 +262,16 @@ export default function useYolo() {
         for (let i of finalBoxes) {
           result += i.class.toString();
         }
+
         meterValue.value = result;
-        boxes.value = finalBoxes;
+        boxes.value = [...finalBoxes];
+
         state.value = 0;
     }
 
     return {
         ocrModel,
+        inferenceIndicator,
         model,
         modelWorklet,
         frameProcessor,
