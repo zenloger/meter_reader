@@ -43,7 +43,7 @@ function MeterValue(props: { meterValue: ISharedValue<string> }) {
 }
 
 export default function CameraTab() {
-  const { modelWorklet, frameProcessor, boxes, meterValue, inference, ransac, nms } = useYolo();
+  const { ocrModel, modelWorklet, frameProcessor, boxes, meterValue, inference, ransac, nms } = useYolo();
   // const boxes = React.useState([]);
   // const meterValue = useSharedValue('123');
   // const inference = () => {};
@@ -86,10 +86,8 @@ export default function CameraTab() {
   const frameProcessorWrapper = useFrameProcessor((frame) => {
     'worklet'
     if (isProcessingShared.value) {
-      console.log("NOT HANDLE FRAME");
       return;
     }
-    console.log("HANDLE FRAME");
     return frameProcessor(frame);
   }, [modelWorklet]);
 
@@ -169,7 +167,7 @@ export default function CameraTab() {
     if (!cameraRef.current || isProcessing) return;
     let newCandidates: typeof candidates = []
     if (meterValue.value.trim()) {
-      newCandidates.push({ 'label': 'YOLA RealTime', 'value': meterValue.value });
+      newCandidates.push({ 'label': 'YOLO RealTime', 'value': meterValue.value });
     }
 
     const wait = (ms: number) => new Promise(resolve => {
@@ -211,7 +209,7 @@ export default function CameraTab() {
         photoPath,
         [
           { crop: { originX: cropOriginX, originY: cropOriginY, width: minSide, height: minSide } },
-          { resize: { width: 416, height: 416 } }
+          { resize: { width: 640, height: 640 } }
         ],
         { format: ImageManipulator.SaveFormat.PNG }
       );
@@ -246,7 +244,6 @@ export default function CameraTab() {
         }
       }
 
-      console.log('OK');
       const bboxes = ransac(nms(inference(floatArray)));
 
       const finalBoxes = ([] as typeof bboxes).sort.call(bboxes, ((a, b) => a.x - b.x));
@@ -264,6 +261,39 @@ export default function CameraTab() {
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#0f0";
       ctx.stroke();
+
+      let resultOcr = '';
+      // Вырезаем участок картинки, соответствующий боксу, и сохраняем его в отдельный PNG-файл
+      // Используем expo-image-manipulation для обрезки и сохранения
+      if (bboxes.length) {
+        const padding = 10;
+        const cropX = Math.max(0, (bboxes[0].x - bboxes[0].w) * png.width - padding);
+        const cropY = Math.max(0, (bboxes[0].y - bboxes[0].h) * png.height - padding);
+        const cropWidth = Math.min((bboxes[bboxes.length - 1].x - bboxes[0].x) * png.width + 5 * padding, png.width - cropX);
+        const cropHeight = Math.min(bboxes[bboxes.length - 1].h * png.height * 2 + 4 * padding, png.height - cropY);
+  
+        try {
+          const cropped = await ImageManipulator.manipulateAsync(
+            pngUri,
+            [
+              {
+                crop: {
+                  originX: cropX,
+                  originY: cropY,
+                  width: cropWidth,
+                  height: cropHeight,
+                }
+              }
+            ],
+            { format: ImageManipulator.SaveFormat.PNG }
+          );
+          const detections = await ocrModel.forward(pngUri);
+          // setPhoto(cropped.uri);
+          console.log(detections);
+        } catch (e) {
+          console.warn('Ошибка при сохранении участка картинки:', e);
+        }
+      }
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('Ошибка', 'Не удалось обработать изображение. Пожалуйста, попробуйте еще раз.');
@@ -440,20 +470,26 @@ export default function CameraTab() {
             ))
           )}
         </View>
-        <View style={styles.saveButtonsRow}>
-          <TouchableOpacity style={[styles.saveButton, styles.cancelButton]} onPress={() => { setPhoto(null); setInputValue(''); }}>
-            <X size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.saveButtonText}>Отмена</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveButton, { opacity: inputValue.trim() ? 1 : 0.5 }]}
-            onPress={() => handleSaveReading()}
-            disabled={!inputValue.trim()}
-          >
-            <Save size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.saveButtonText}>Сохранить</Text>
-          </TouchableOpacity>
-        </View>
+        {isProcessing ? (
+          <View style={[styles.saveButtonsRow, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#ffd700" />
+          </View>
+        ) : (
+          <View style={styles.saveButtonsRow}>
+            <TouchableOpacity style={[styles.saveButton, styles.cancelButton]} onPress={() => { setPhoto(null); setInputValue(''); }}>
+              <X size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.saveButtonText}>Отмена</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveButton, { opacity: inputValue.trim() ? 1 : 0.5 }]}
+              onPress={() => handleSaveReading()}
+              disabled={!inputValue.trim()}
+            >
+              <Save size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.saveButtonText}>Сохранить</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </LinearGradient>
 
       {/* Модальное окно для изменения значения */}

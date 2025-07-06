@@ -10,6 +10,14 @@ import { Platform } from 'react-native';
 import Canvas from 'react-native-canvas';
 import {NativeModules} from 'react-native';
 import { useSharedValue, Worklets } from 'react-native-worklets-core';
+import {
+  useOCR,
+  DETECTOR_CRAFT_800,
+  RECOGNIZER_EN_CRNN_512,
+  RECOGNIZER_EN_CRNN_256,
+  RECOGNIZER_EN_CRNN_128,
+  RECOGNIZER_EN_CRNN_64,
+} from 'react-native-executorch';
 
 export const convertPngToArrayBuffer = async (imageUri: string) => {
   try {
@@ -62,8 +70,20 @@ interface InferenceOutput {
 }
 
 export default function useYolo() {
-    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
-    const { model: model } = useTensorflowModel(require('@/assets/models/best_float32.tflite'));
+    const ocrModel = useOCR({
+      detectorSource: DETECTOR_CRAFT_800,
+      recognizerSources: {
+        recognizerLarge: RECOGNIZER_EN_CRNN_512,
+        recognizerMedium: RECOGNIZER_EN_CRNN_256,
+        recognizerSmall: RECOGNIZER_EN_CRNN_128,
+      },
+      // Для распознавания только цифр используем язык 'digits'
+      language: 'en',
+      
+    })
+
+    const { model: modelWorklet } = useTensorflowModel(require('@/assets/models/best_float32.tflite'));
+    const { model: model } = useTensorflowModel(require('@/assets/models/best_float32_640.tflite'));
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
@@ -76,7 +96,7 @@ export default function useYolo() {
       const output = (model.runSync([floatArray])[0]) as Float32Array;
 
       // 14 x OUTPUT_SIZE
-      const OUTPUT_SIZE = 3549;
+      const OUTPUT_SIZE = 8400;
       const CLASS_COUNT = 10;
       let confidence = new Float32Array(CLASS_COUNT);
       for (let i = 0; i < OUTPUT_SIZE; i++) {
@@ -225,6 +245,7 @@ export default function useYolo() {
     }
 
     return {
+        ocrModel,
         model,
         modelWorklet,
         frameProcessor,

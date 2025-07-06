@@ -30,7 +30,6 @@ export const getStoredReadings = async (): Promise<MeterReading[]> => {
   await ensureDBInitialized();
   const rawResult: unknown = await db.getAllAsync('SELECT * FROM readings ORDER BY timestamp DESC');
   const result = (rawResult as any[]).map(v => ({ ...v, confidence: undefined }));
-  console.log(result);
   return result ? (result as MeterReading[]) : [];
 };
 
@@ -54,7 +53,6 @@ export const storeReading = async (reading: MeterReading): Promise<void> => {
     $type: escapeStr(reading.type),
   });
 
-  console.log(result);
   await statement.finalizeAsync();
 };
 
