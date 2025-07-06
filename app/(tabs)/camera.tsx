@@ -38,9 +38,9 @@ function MeterValue(props: { meterValue: ISharedValue<string> }) {
 }
 
 export default function CameraTab() {
-  // const { frameProcessor, boxes, meterValue } = useYolo();
-  const boxes = React.useState([]);
-  const meterValue = useSharedValue('123');
+  const { frameProcessor, boxes, meterValue } = useYolo();
+  // const boxes = React.useState([]);
+  // const meterValue = useSharedValue('123');
   const canvasRef = React.useRef<Canvas>(null);
   const photoCanvasRef = React.useRef<Canvas>(null);
   const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
@@ -146,11 +146,16 @@ export default function CameraTab() {
 
   const takePicture = async () => {
     if (!cameraRef.current || isProcessing) return;
+    let newCandidates: typeof candidates = []
+    if (meterValue.value.trim()) {
+      newCandidates.push({ 'label': 'YOLA', 'value': meterValue.value });
+    }
 
     setIsProcessing(true);
     
     try {
       const photo: PhotoFile = await cameraRef.current.takeSnapshot();
+      setCandidates(newCandidates);
       setPhoto(photo);
 
 
@@ -205,13 +210,6 @@ export default function CameraTab() {
     }
   };
 
-  console.log(photo);
-
-  const handleCancelEdit = () => {
-    setEditModalVisible(false);
-    setEditPhoto(null);
-  };
-
   return (
     <View style={styles.container}>
       <View style={[styles.cameraContainer, {
@@ -236,7 +234,7 @@ export default function CameraTab() {
           enableFpsGraph={fpsShown}
           photo={true}
           preview={photo == null}
-          // frameProcessor={frameProcessor}
+          frameProcessor={frameProcessor}
         />
         <View style={styles.cameraOverlay}>
           <View style={styles.frameGuide}>
@@ -327,16 +325,22 @@ export default function CameraTab() {
           </TouchableOpacity>
         </View>
         <View style={styles.candidatesRow}>
-          {candidates.map((c, idx) => (
-            <TouchableOpacity
-              key={c.label}
-              style={styles.candidateButton}
-              onPress={() => setInputValue(c.value)}
-            >
-              <Text style={styles.candidateLabel}>{c.label}</Text>
-              <Text style={styles.candidateValue}>{c.value}</Text>
-            </TouchableOpacity>
-          ))}
+          {candidates.length === 0 ? (
+            <Text style={styles.candidatesEmptyText}>
+              Ничего не найдено, попробуйте сделать ещё фотографию
+            </Text>
+          ) : (
+            candidates.map((c, idx) => (
+              <TouchableOpacity
+                key={c.label}
+                style={styles.candidateButton}
+                onPress={() => setInputValue(c.value)}
+              >
+                <Text style={styles.candidateLabel}>{c.label}</Text>
+                <Text style={styles.candidateValue}>{c.value}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
         <View style={styles.saveButtonsRow}>
           <TouchableOpacity style={[styles.saveButton, styles.cancelButton]} onPress={() => { setPhoto(null); setInputValue(''); }}>
@@ -832,5 +836,12 @@ const styles = StyleSheet.create({
   editIconButton: {
     marginLeft: 8,
     padding: 4,
+  },
+  candidatesEmptyText: {
+    color: '#aaa',
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+    paddingVertical: 12,
   },
 });
