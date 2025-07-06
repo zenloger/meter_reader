@@ -58,7 +58,7 @@ interface Box {
 }
 
 export default function useYolo() {
-    const { model } = useTensorflowModel(require('@/assets/models/best_float16.tflite'));
+    const { model } = useTensorflowModel(require('@/assets/models/anna_float32.tflite'), 'android-gpu');
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
@@ -68,13 +68,15 @@ export default function useYolo() {
         'worklet'
         if (!model) return;
 
-        if (state.value != 0) return;
-        state.value = 1;
+        if (state.value > 0) {
+            state.value--;
+            return;
+        }
  
         const data = resize(frame, {
             scale: {
-                width: 256,
-                height: 256,
+                width: 416,
+                height: 416,
             },
             pixelFormat: 'rgb',
             dataType: 'float32'
@@ -87,17 +89,16 @@ export default function useYolo() {
             const output = (model.runSync([data])[0]) as Float32Array;
             let d = Date.now();
             console.log((d - c) / 1000);
-            console.log(output.length);
     
             // 14 x OUTPUT_SIZE
-            const OUTPUT_SIZE = 1344;
-            let confidence = new Float32Array(10);
+            const OUTPUT_SIZE = 3549;
+            let confidence = new Float32Array(2);
             for (let i = 0; i < OUTPUT_SIZE; i++) {
                 // data[0][i]
                 let y = output[0 * OUTPUT_SIZE + i];
-                let x = output[1 * OUTPUT_SIZE + i];
-                let w = output[2 * OUTPUT_SIZE + i];
-                let h = output[3 * OUTPUT_SIZE + i];
+                let x = 1 - output[1 * OUTPUT_SIZE + i];
+                let h = output[2 * OUTPUT_SIZE + i];
+                let w = output[3 * OUTPUT_SIZE + i];
                 
                 // let x = output[i * 14 + 0];
                 // let y = output[i * 14 + 1];
@@ -105,7 +106,7 @@ export default function useYolo() {
                 // let h = output[i * 14 + 3];
     
                 let maxV = 0, maxI = 0;
-                for (let j = 0; j < 10; j++) {
+                for (let j = 0; j < 2; j++) {
                     confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
                     // confidence[j] = output[i * 14 + (j + 4)];
                     if (confidence[j] > maxV) {
@@ -121,8 +122,8 @@ export default function useYolo() {
     
             newBoxes.sort((a, b) => b.confidence - a.confidence);
             state.value = 0;
-            boxes.value = newBoxes.filter(v => v.confidence >= 0.5).slice(0, 5);
-            console.log(newBoxes.slice(0, 10).map(v => v.class));
+            boxes.value = newBoxes.filter(v => v.confidence >= 0.5);
+            console.log(newBoxes.filter(v => v.confidence >= 0.5).slice(0, 10).map(v => v.class));
         }
         inference();
         state.value = 0;

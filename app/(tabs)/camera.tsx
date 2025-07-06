@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile } from 'react-native-vision-camera';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Dimensions, LayoutRectangle } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission, Frame, PhotoFile, useCameraFormat } from 'react-native-vision-camera';
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun } from 'lucide-react-native';
+import { Camera as CameraIcon, FlipHorizontal, Zap, Check, Sun, WatchIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { analyzeImage } from '@/utils/imageAnalysis';
 import { storeReading, initDB } from '@/utils/storage';
@@ -11,9 +11,17 @@ import Canvas, { Image } from 'react-native-canvas';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function CameraTab() {
-  const { frameProcessor, boxes } = useYolo();
+  // const { frameProcessor, boxes } = useYolo();
+  const boxes = React.useState([]);
   const canvasRef = React.useRef<Canvas>(null);
+  const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
   const device = useCameraDevice('back');
+  const deviceFormat = useCameraFormat(device, [{
+    photoResolution: {
+      width: 720,
+      height: 720
+    }
+  }]);
   const { hasPermission, requestPermission } = useCameraPermission();
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastReading, setLastReading] = useState<string | null>(null);
@@ -26,6 +34,7 @@ export default function CameraTab() {
   const [editConfidence, setEditConfidence] = useState(0.9);
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
   const [torch, setTorch] = useState(false);
+  const [fpsShown, setFpsShown] = useState(false);
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -46,31 +55,31 @@ export default function CameraTab() {
     const interval = setInterval(() => {
       if (!canvasRef.current) return;
       if (!cameraRef.current) return;
+      if (!layout) return;
   
       const ctx = canvasRef.current.getContext('2d');
-      canvasRef.current.width = Dimensions.get('window').width;
-      canvasRef.current.height = Dimensions.get('window').height;
+      canvasRef.current.width = layout.width;
+      canvasRef.current.height = layout.height;
       const width = canvasRef.current.width;
       const height = canvasRef.current.height;
-      let cc = [...boxes, {
-        x: 0.03,
-        y: 0.03,
-        w: 0.9,
-        h: 0.9
-      }];
+      const delta = height - width;
+      let cc: Array<any> = [...boxes];
       for (let box of cc) {
-        ctx.rect(box.x * width, box.y * height, box.w * width, box.h * height);
-        // console.log(box.x * width, box.y * height, box.w * width, box.h * height);
+        ctx.rect((box.x - box.w / 2) * width, (box.y - box.h / 2) * width + delta / 2, box.w * width, box.h * width);
       }
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#0f0";
       ctx.stroke();
-    }, 1000);
+
+      ctx.strokeStyle = "#ff0";
+      ctx.rect(0, delta / 2, width, width);
+      ctx.stroke();
+    }, 50);
 
     return () => {
       clearInterval(interval);
     }
-  }, [boxes])
+  }, [boxes, layout])
 
   if (!hasPermission) {
     return (
@@ -169,16 +178,20 @@ export default function CameraTab() {
   return (
     <View style={styles.container}>
       <View style={styles.cameraContainer}>
+        <Canvas style={styles.canvasOverlay} ref={canvasRef} />
         <Camera
-          key={frameId}
+          torch={torch ? 'on' : 'off'}
+          fps={20}
+          format={deviceFormat}
+          onLayout={event => setLayout(event.nativeEvent.layout)}
           style={styles.camera}
           device={device}
           isActive={true}
           ref={cameraRef}
+          enableFpsGraph={fpsShown}
           photo={true}
-          frameProcessor={frameProcessor}
+          // frameProcessor={frameProcessor}
         />
-        <Canvas style={styles.camera} ref={canvasRef} />
         <LinearGradient
           colors={['rgba(0,0,0,0.4)', 'transparent']}
           style={styles.topOverlay}
@@ -210,10 +223,11 @@ export default function CameraTab() {
           <View style={styles.controlsContainer}>
             <TouchableOpacity
               style={styles.controlButton}
-              onPress={toggleCameraFacing}
+              onPress={() => setFpsShown(t => !t)}
               activeOpacity={0.8}
+              disabled
             >
-              <FlipHorizontal size={24} color="#ffffff" />
+              <WatchIcon disabled size={24} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
@@ -276,6 +290,8 @@ export default function CameraTab() {
   );
 }
 
+const CAMERA_SIZE = Dimensions.get('screen').width;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -285,10 +301,16 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   camera: {
-    width: '100%',
-    height: '100%',
+    width: CAMERA_SIZE,
+    height: CAMERA_SIZE,
+    position: 'absolute',
     flex: 1,
-    position: 'absolute'
+  },
+  canvasOverlay: {
+    width: CAMERA_SIZE,
+    height: CAMERA_SIZE,
+    position: 'absolute',
+    flex: 1,
   },
   topOverlay: {
     paddingTop: 60,
