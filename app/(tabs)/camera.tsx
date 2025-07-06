@@ -35,6 +35,7 @@ export default function CameraTab() {
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
   const [torch, setTorch] = useState(false);
   const [fpsShown, setFpsShown] = useState(false);
+  const [meterValue, setMeterValue] = useState('1234.56'); // MOCK: строка показаний
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -199,7 +200,15 @@ export default function CameraTab() {
           </View>
         </View>
       </View>
-      {/* Всё, что ниже — под камерой */}
+      <View style={styles.meterReadingsBlock}>
+        <View style={styles.meterReadingRow}>
+          {meterValue.split('').map((char, idx) => (
+            <View key={idx} style={styles.meterDigitBox}>
+              <Text style={styles.meterDigit}>{char}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
       <LinearGradient
         colors={["#232526", "#414345"]}
         start={{ x: 0, y: 0 }}
@@ -300,7 +309,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     marginTop: 0,
-    marginBottom: 24, // Добавим небольшой отступ снизу
+    marginBottom: 16, // Добавим небольшой отступ снизу
   },
   camera: {
     width: CAMERA_SIZE,
@@ -424,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     width: '100%',
     alignSelf: 'center',
-    marginTop: 40,
+    marginTop: 20,
     marginBottom: 50,
   },
   controlButton: {
@@ -579,5 +588,47 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     textAlign: 'center',
     letterSpacing: 0.5,
+  },
+  meterReadingsBlock: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 0,
+  },
+  meterReadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  meterDigitBox: {
+    width: 26,
+    height: 34,
+    backgroundColor: '#232526',
+    borderRadius: 10,
+    marginHorizontal: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  meterDigit: {
+    color: '#ffd700',
+    fontSize: 22,
+    fontFamily: 'Inter-Bold',
+    textAlign: 'center',
+  },
+  meterUnit: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Inter-Medium',
+    marginLeft: 4,
+  },
+  meterConfidence: {
+    color: '#aaa',
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    marginTop: 1,
   },
 });
