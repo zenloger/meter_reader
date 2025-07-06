@@ -11,8 +11,8 @@ import Canvas, { Image } from 'react-native-canvas';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function CameraTab() {
-  // const { frameProcessor, boxes } = useYolo();
-  const boxes = React.useState([]);
+  const { frameProcessor, boxes } = useYolo();
+  // const boxes = React.useState([]);
   const canvasRef = React.useRef<Canvas>(null);
   const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
   const device = useCameraDevice('back');
@@ -167,16 +167,12 @@ export default function CameraTab() {
     setEditPhoto(null);
   };
 
-  const toggleCameraFacing = () => {
-    // Для react-native-vision-camera нужно переключать device
-    // Это будет реализовано позже
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.cameraContainer}>
         <Canvas style={styles.canvasOverlay} ref={canvasRef} />
         <Camera
+          key={frameId}
           torch={torch ? 'on' : 'off'}
           fps={20}
           format={deviceFormat}
@@ -187,7 +183,7 @@ export default function CameraTab() {
           ref={cameraRef}
           enableFpsGraph={fpsShown}
           photo={true}
-          // frameProcessor={frameProcessor}
+          frameProcessor={frameProcessor}
         />
         <View style={styles.cameraOverlay}>
           <View style={styles.frameGuide}>

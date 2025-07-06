@@ -58,7 +58,7 @@ interface Box {
 }
 
 export default function useYolo() {
-    const { model } = useTensorflowModel(require('@/assets/models/anna_float32.tflite'), 'android-gpu');
+    const { model } = useTensorflowModel(require('@/assets/models/best_float32.tflite'), 'android-gpu');
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
@@ -92,7 +92,8 @@ export default function useYolo() {
     
             // 14 x OUTPUT_SIZE
             const OUTPUT_SIZE = 3549;
-            let confidence = new Float32Array(2);
+            const CLASS_COUNT = 10;
+            let confidence = new Float32Array(CLASS_COUNT);
             for (let i = 0; i < OUTPUT_SIZE; i++) {
                 // data[0][i]
                 let y = output[0 * OUTPUT_SIZE + i];
@@ -106,7 +107,7 @@ export default function useYolo() {
                 // let h = output[i * 14 + 3];
     
                 let maxV = 0, maxI = 0;
-                for (let j = 0; j < 2; j++) {
+                for (let j = 0; j < CLASS_COUNT; j++) {
                     confidence[j] = output[(j + 4) * OUTPUT_SIZE + i];
                     // confidence[j] = output[i * 14 + (j + 4)];
                     if (confidence[j] > maxV) {
@@ -122,8 +123,9 @@ export default function useYolo() {
     
             newBoxes.sort((a, b) => b.confidence - a.confidence);
             state.value = 0;
-            boxes.value = newBoxes.filter(v => v.confidence >= 0.5);
-            console.log(newBoxes.filter(v => v.confidence >= 0.5).slice(0, 10).map(v => v.class));
+            boxes.value = newBoxes.filter(v => v.confidence >= 0.2);
+            // console.log(newBoxes.filter(v => v.confidence >= 0.5).slice(0, 10).map(v => v.class));
+            console.log(boxes.value.length);
         }
         inference();
         state.value = 0;

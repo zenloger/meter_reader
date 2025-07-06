@@ -55,7 +55,8 @@
           "enableCoreMLDelegate": true,
           "enableAndroidGpuLibraries": true
         }
-      ]
+      ],
+      "react-native-background-fetch"
     ],
     "experiments": {
       "typedRoutes": true

@@ -27,8 +27,6 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
-        <data android:scheme="com.so_dam.boltexponativewind"/>
-        <data android:scheme="com.so_dam.meter_reader"/>
       </intent-filter>
     </activity>
     <uses-native-library android:name="libOpenCL.so" android:required="false"/>
