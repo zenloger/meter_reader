@@ -62,6 +62,7 @@ export default function useYolo() {
     const { resize } = useResizePlugin();
     const canvasRef = React.useRef<Canvas>(null);
     const state = useSharedValue(0);
+    const meterValue = useSharedValue('');
     const boxes = useSharedValue<Box[]>([]);
 
     const frameProcessor = useFrameProcessor((frame) => {
@@ -120,11 +121,51 @@ export default function useYolo() {
                     x, y, w, h, class: maxI, confidence: maxV
                 });
             }
-    
+
+            newBoxes = newBoxes.filter(v => v.confidence >= 0.04);
+
+            // Sort boxes by confidence (highest first)
             newBoxes.sort((a, b) => b.confidence - a.confidence);
+
+            // Non-Maximum Suppression (NMS)
+            const nmsThreshold = 0.5; // IoU threshold
+            const nmsBoxes: Box[] = [];
+            
+            while (newBoxes.length > 0) {
+              const currentBox = newBoxes[0];
+              nmsBoxes.push(currentBox);
+              newBoxes.shift();
+              
+              for (let i = newBoxes.length - 1; i >= 0; i--) {
+                const iou = calculateIoU(currentBox, newBoxes[i]);
+                if (iou > nmsThreshold) {
+                  newBoxes.splice(i, 1);
+                }
+              }
+            }
+
+            let finalBoxes: Box[] = [];
+
+            // RANSAC for line fitting
+            if (nmsBoxes.length >= 2) {
+              const ransacResults = runRANSAC(nmsBoxes);
+              finalBoxes = ransacResults.inliers;
+              console.log(`RANSAC: ${ransacResults.inliers.length} inliers, line: ${ransacResults.line}`);
+            } else {
+              finalBoxes = nmsBoxes;
+            }
+
+            console.log(finalBoxes);
+            finalBoxes = ([] as Box[]).sort.call(finalBoxes, ((a, b) => a.x - b.x));
+            let result = '';
+            for (let i of finalBoxes) {
+              result += i.class.toString();
+            }
+            
+            
+            meterValue.value = result;
+            boxes.value = finalBoxes;
             state.value = 0;
-            boxes.value = newBoxes.filter(v => v.confidence >= 0.2);
-            // console.log(newBoxes.filter(v => v.confidence >= 0.5).slice(0, 10).map(v => v.class));
             console.log(boxes.value.length);
         }
         inference();
@@ -133,6 +174,101 @@ export default function useYolo() {
 
     return {
         frameProcessor,
-        boxes: boxes.value
+        boxes: boxes.value,
+        meterValue
     };
+}
+
+// Helper function to calculate Intersection over Union (IoU)
+function calculateIoU(box1: Box, box2: Box): number {
+  'worklet'
+  // Calculate coordinates of intersection rectangle
+  const x1 = Math.max(box1.x - box1.w/2, box2.x - box2.w/2);
+  const y1 = Math.max(box1.y - box1.h/2, box2.y - box2.h/2);
+  const x2 = Math.min(box1.x + box1.w/2, box2.x + box2.w/2);
+  const y2 = Math.min(box1.y + box1.h/2, box2.y + box2.h/2);
+  
+  // Calculate area of intersection
+  const intersectionArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  
+  // Calculate area of both boxes
+  const box1Area = box1.w * box1.h;
+  const box2Area = box2.w * box2.h;
+  
+  // Calculate union area
+  const unionArea = box1Area + box2Area - intersectionArea;
+  
+  // Return IoU
+  return intersectionArea / unionArea;
+}
+
+// Calculate distance between two boxes (simplified Euclidean distance between centers)
+function boxDistance(box1: Box, box2: Box): number {
+  'worklet'
+  const dx = box1.x - box2.x;
+  const dy = box1.y - box2.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function runRANSAC(boxes: Box[], iterations = 30, distanceThreshold = 0.05): {
+  line: {a: number, b: number, c: number},
+  inliers: Box[]
+} {
+  'worklet'
+  let bestLine = {a: 0, b: 0, c: 0};
+  let bestInliers: Box[] = [];
+  let maxInliers = 0;
+
+  // Convert boxes to center points
+  const points = boxes.map(box => ({
+      x: box.x,
+      y: box.y
+  }));
+
+  for (let i = 0; i < iterations; i++) {
+      // Randomly select two points
+      const idx1 = Math.floor(Math.random() * points.length);
+      let idx2 = Math.floor(Math.random() * points.length);
+      while (idx2 === idx1 && points.length > 1) {
+          idx2 = Math.floor(Math.random() * points.length);
+      }
+
+      const p1 = points[idx1];
+      const p2 = points[idx2];
+
+      // Calculate line equation: ax + by + c = 0
+      const a = p2.y - p1.y;
+      const b = p1.x - p2.x;
+      const c = p2.x * p1.y - p1.x * p2.y;
+
+      // Normalize line coefficients
+      const norm = Math.sqrt(a*a + b*b);
+      const aNorm = a / norm;
+      const bNorm = b / norm;
+      const cNorm = c / norm;
+
+      // Find inliers (points close to the line)
+      const currentInliers: Box[] = [];
+      for (let j = 0; j < points.length; j++) {
+          const point = points[j];
+          // Distance from point to line
+          const distance = Math.abs(aNorm * point.x + bNorm * point.y + cNorm);
+          
+          if (distance < distanceThreshold) {
+              currentInliers.push(boxes[j]);
+          }
+      }
+
+      // Update best model if we found more inliers
+      if (currentInliers.length > maxInliers) {
+          maxInliers = currentInliers.length;
+          bestInliers = currentInliers;
+          bestLine = {a: aNorm, b: bNorm, c: cNorm};
+      }
+  }
+
+  return {
+      line: bestLine,
+      inliers: bestInliers,
+  };
 }

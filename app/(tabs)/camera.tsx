@@ -9,9 +9,36 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import useYolo from '@/hooks/useYolo';
 import Canvas, { Image } from 'react-native-canvas';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { ISharedValue } from 'react-native-worklets-core';
+
+function MeterValue(props: { meterValue: ISharedValue<string> }) {
+  const [_, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const {meterValue} = props;
+
+  React.useLayoutEffect(() => {
+    const interval = setInterval(() => {
+      forceUpdate();
+    }, 50);
+
+    return () => {
+      clearInterval(interval);
+    }
+  }, [meterValue])
+
+  return (
+    <>
+      {meterValue.value.split('').map((char, idx) => (
+        <View key={idx} style={styles.meterDigitBox}>
+          <Text style={styles.meterDigit}>{char}</Text>
+        </View>
+      ))}
+    </>
+  );
+}
 
 export default function CameraTab() {
-  const { frameProcessor, boxes } = useYolo();
+  const { frameProcessor, boxes, meterValue } = useYolo();
   // const boxes = React.useState([]);
   const canvasRef = React.useRef<Canvas>(null);
   const [layout, setLayout] = React.useState<LayoutRectangle|null>(null);
@@ -35,7 +62,6 @@ export default function CameraTab() {
   const [frameId, incrementFrameId] = useReducer((x: number) => x + 1, 0);
   const [torch, setTorch] = useState(false);
   const [fpsShown, setFpsShown] = useState(false);
-  const [meterValue, setMeterValue] = useState('1234.56'); // MOCK: строка показаний
 
   useEffect(() => {
     // initDB больше не нужен, инициализация происходит автоматически
@@ -115,19 +141,19 @@ export default function CameraTab() {
     setIsProcessing(true);
     
     try {
-      const photo: PhotoFile = await cameraRef.current.takePhoto();
+      const photo: PhotoFile = await cameraRef.current.takeSnapshot();
 
-      if (photo) {
-        // Вызываем handlePhoto для анализа изображения
-        const analysis = {} as any;
+      // if (photo) {
+      //   // Вызываем handlePhoto для анализа изображения
+      //   const analysis = {} as any;
 
-        // Открываем модальное окно для редактирования
-        setEditValue(String(analysis.value || 0));
-        setEditUnit(analysis.unit || 'м³');
-        setEditPhoto(photo);
-        setEditConfidence(analysis.confidence || 0.9);
-        setEditModalVisible(true);
-      }
+      //   // Открываем модальное окно для редактирования
+      //   setEditValue(String(analysis.value || 0));
+      //   setEditUnit(analysis.unit || 'м³');
+      //   setEditPhoto(photo);
+      //   setEditConfidence(analysis.confidence || 0.9);
+      //   setEditModalVisible(true);
+      // }
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('Ошибка', 'Не удалось обработать изображение. Пожалуйста, попробуйте еще раз.');
@@ -174,7 +200,6 @@ export default function CameraTab() {
         <Camera
           key={frameId}
           torch={torch ? 'on' : 'off'}
-          fps={20}
           format={deviceFormat}
           onLayout={event => setLayout(event.nativeEvent.layout)}
           style={styles.camera}
@@ -198,11 +223,7 @@ export default function CameraTab() {
       </View>
       <View style={styles.meterReadingsBlock}>
         <View style={styles.meterReadingRow}>
-          {meterValue.split('').map((char, idx) => (
-            <View key={idx} style={styles.meterDigitBox}>
-              <Text style={styles.meterDigit}>{char}</Text>
-            </View>
-          ))}
+          <MeterValue meterValue={meterValue} />
         </View>
       </View>
       <LinearGradient
