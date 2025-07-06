@@ -70,10 +70,6 @@ export default function CameraTab() {
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#0f0";
       ctx.stroke();
-
-      ctx.strokeStyle = "#ff0";
-      ctx.rect(0, delta / 2, width, width);
-      ctx.stroke();
     }, 50);
 
     return () => {
