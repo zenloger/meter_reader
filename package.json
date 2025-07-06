@@ -45,6 +45,7 @@
     "react-native": "0.79.5",
     "react-native-background-fetch": "^4.2.8",
     "react-native-canvas": "^0.1.40",
+    "react-native-executorch": "^0.4.5",
     "react-native-fast-opencv": "^0.4.6",
     "react-native-fast-tflite": "^1.6.1",
     "react-native-gesture-handler": "~2.24.0",
